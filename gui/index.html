@@ -85,6 +85,7 @@ function renderLesson() {
     done.innerHTML = "<b>Lesson complete!</b> Return to your Claude Code terminal session to generate the next lesson.";
     $app.appendChild(done);
   }
+  $app.appendChild(feedbackBox());
   const restart = document.createElement("button");
   restart.textContent = "⟲ Restart lesson";
   restart.onclick = () => {
@@ -94,6 +95,33 @@ function renderLesson() {
   };
   $app.appendChild(restart);
   renderMath($app);
+}
+
+// Always-available channel for the student to message the teacher mid-lesson.
+// Saved into progress.json (state.feedback); the teacher reads it and edits the
+// not-yet-seen blocks, after which the student reloads and resumes from currentBlock.
+function feedbackBox() {
+  const wrap = document.createElement("div");
+  wrap.className = "block feedbackbox";
+  wrap.innerHTML = "<p>💬 <b>Message the teacher</b> (optional): stuck, want more detail, too hard or too easy? " +
+    "Write it, send, then go back to your terminal and tell the teacher you left feedback.</p>";
+  const ta = document.createElement("textarea");
+  ta.rows = 2; ta.style.width = "100%";
+  const btn = document.createElement("button");
+  btn.textContent = "Send feedback";
+  const msg = document.createElement("span");
+  btn.onclick = () => {
+    const text = ta.value.trim();
+    if (!text) { msg.textContent = "Write something first."; return; }
+    state.feedback = state.feedback || [];
+    state.feedback.push({ block: state.currentBlock, text: text, ts: new Date().toISOString() });
+    saveProgress();
+    ta.value = "";
+    msg.className = "feedback-right";
+    msg.textContent = " Saved. Return to your terminal so the teacher can adjust the lesson.";
+  };
+  wrap.appendChild(ta); wrap.appendChild(btn); wrap.appendChild(msg);
+  return wrap;
 }
 
 function unlockNext() {
@@ -138,17 +166,30 @@ function continueButton() {
   return btn;
 }
 
+function newQuizState(block) {
+  // Shuffle option order once, so the correct answer is not always in the same
+  // position regardless of how the teacher ordered them in the JSON.
+  const order = block.options.map((_, i) => i);
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [order[i], order[j]] = [order[j], order[i]];
+  }
+  return { retries: 0, correct: false, revealed: false, order: order };
+}
+
 function renderQuiz(div, block, index) {
-  const qs = state.quiz[index] || (state.quiz[index] = { retries: 0, correct: false, revealed: false });
+  let qs = state.quiz[index];
+  if (!qs) { qs = state.quiz[index] = newQuizState(block); saveProgress(); }
+  if (!qs.order || qs.order.length !== block.options.length) qs.order = newQuizState(block).order;
   const answered = qs.correct || qs.revealed;
   div.classList.add(qs.correct ? "correct" : qs.revealed ? "revealed" : "open");
   div.innerHTML = `<p><b>Quiz:</b> ${block.question}</p>`;
 
   const form = document.createElement("form");
-  block.options.forEach((opt, i) => {
+  qs.order.forEach((origIdx) => {
     const label = document.createElement("label");
-    const checked = answered && i === block.answer ? "checked" : "";
-    label.innerHTML = `<input type="radio" name="q${index}" value="${i}" ${checked} ${answered ? "disabled" : ""}> ${opt}`;
+    const checked = answered && origIdx === block.answer ? "checked" : "";
+    label.innerHTML = `<input type="radio" name="q${index}" value="${origIdx}" ${checked} ${answered ? "disabled" : ""}> ${block.options[origIdx]}`;
     form.appendChild(label);
   });
   div.appendChild(form);

@@ -1,0 +1,138 @@
+{
+  "subject": "how-the-ribosome-works",
+  "lesson": 1,
+  "title": "How the Ribosome Works — The Big Picture",
+  "blocks": [
+    {
+      "type": "explanation",
+      "markdown": "You already know that a **protein** is a chain of **amino acids** linked together in a specific order. That order is everything — change it and the protein does a different job, or stops working entirely.\n\nSo every cell faces a manufacturing problem: *how do you join amino acids together in exactly the right sequence, millions of times, without mistakes?* The answer is a tiny molecular machine called the **ribosome**. Think of it as the cell's **3D printer for proteins**.\n\n> Keep one question in mind as you go — you'll be asked about it: **what tells the ribosome which amino acid to add next?**"
+    },
+    {
+      "type": "quiz-choice",
+      "question": "In one sentence, what is the ribosome's main job?",
+      "options": [
+        "It joins amino acids together, in a specific order, to build a protein",
+        "It stores the cell's genetic instructions permanently",
+        "It breaks proteins down into amino acids for recycling",
+        "It copies DNA before a cell divides"
+      ],
+      "answer": 0,
+      "hints": [
+        "Go back to the 3D-printer analogy: is a printer for *storing* designs, or for *building* the thing?",
+        "The ribosome builds, and it builds by joining amino acids in order."
+      ]
+    },
+    {
+      "type": "explanation",
+      "markdown": "Where does the ribosome get the right sequence? The master instructions for every protein are written in your **DNA**, kept safely in the cell's **nucleus**.\n\nBut DNA is precious and stays put — it does *not* travel out to the ribosome. Instead, the cell makes a cheap, disposable **copy** of just the one instruction it needs right now. That copy is called **messenger RNA**, or **mRNA**: like a photocopy of a single recipe page, sent out while the original cookbook stays safe on the shelf.\n\n> Watch for *why* the cell bothers making a copy instead of using the DNA directly — that's the next question."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "Why doesn't the ribosome just read the DNA directly?",
+      "options": [
+        "DNA stays protected in the nucleus, so the cell sends out a disposable mRNA copy instead",
+        "DNA is too small for the ribosome to grab hold of",
+        "DNA is made of amino acids, which the ribosome cannot read",
+        "The ribosome destroys any DNA it touches"
+      ],
+      "answer": 0,
+      "hints": [
+        "Think of a library's one irreplaceable reference book — do you check it out, or photocopy the page you need?",
+        "The whole point is to keep the original DNA safe and in place while a copy does the traveling."
+      ]
+    },
+    {
+      "type": "quiz-choice",
+      "question": "What is mRNA's role in this process?",
+      "options": [
+        "It carries a copy of one gene's instructions from the DNA to the ribosome",
+        "It links amino acids together into the final protein",
+        "It stores the permanent master copy of all the cell's genes",
+        "It is the finished protein, ready to do its job"
+      ],
+      "answer": 0,
+      "hints": [
+        "The 'm' stands for *messenger*. What does a messenger do — build things, store things, or carry a message?",
+        "mRNA is the message the ribosome reads. It is neither the machine nor the finished product."
+      ]
+    },
+    {
+      "type": "explanation",
+      "markdown": "Here's the clever part. The mRNA message is a long string made of just four chemical 'letters'. The ribosome reads it **three letters at a time**. Each group of three letters is called a **codon**, and each codon stands for **one amino acid**.\n\nSo the ribosome crawls along the mRNA codon by codon: read three letters → add the matching amino acid → shift over → repeat. The protein chain grows one link at a time.\n\n> A short video is coming up next. Before it, lock in this point: **what decides which amino acid gets added at each step?** You'll be asked right after."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "How many mRNA letters does the ribosome read to select one amino acid?",
+      "options": [
+        "Three — a group of three letters is called a codon",
+        "One letter per amino acid",
+        "Twenty, one for each kind of amino acid",
+        "The entire mRNA strand at once"
+      ],
+      "answer": 0,
+      "hints": [
+        "The group of letters has a special name: a *codon*. Another word people use for it is *triplet*.",
+        "'Triplet' is the giveaway — it means three."
+      ]
+    },
+    {
+      "type": "video",
+      "url": "https://www.youtube.com/watch?v=gG7uCskUOrA",
+      "title": "From DNA to protein (3D animation)",
+      "focus": "Watch the ribosome (the large two-part blob) move along the mRNA strand, and watch the small tRNA molecules float in to deliver amino acids. Focus on ONE thing: what decides which amino acid gets added next? You'll be quizzed on exactly that right after."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "Based on the video (and the last few steps), what decides which amino acid the ribosome adds at each step?",
+      "options": [
+        "The codon — the three-letter group currently being read on the mRNA",
+        "Whichever amino acid happens to float by first",
+        "The ribosome adds amino acids in alphabetical order",
+        "The DNA reaches out from the nucleus and places each one"
+      ],
+      "answer": 0,
+      "hints": [
+        "Remember: the ribosome reads the mRNA three letters at a time, and that triplet is the instruction.",
+        "Each codon specifies exactly one amino acid — so the codon being read right now decides the next amino acid."
+      ]
+    },
+    {
+      "type": "explanation",
+      "markdown": "One more player. The amino acids don't find their own spot — they get **delivered**, by small molecules called **transfer RNA**, or **tRNA**.\n\nPicture each tRNA as a little delivery truck: one end recognizes a specific codon on the mRNA, and the other end carries the matching amino acid. When the codon sitting in the ribosome matches a tRNA's 'label', that tRNA docks and hands over its amino acid — which gets linked onto the growing chain. Then the ribosome shifts to the next codon and the whole thing repeats."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "What is the job of tRNA (transfer RNA)?",
+      "options": [
+        "It delivers the correct amino acid to match each codon on the mRNA",
+        "It carries the gene's message out from the nucleus to the ribosome",
+        "It stores the master genetic code permanently",
+        "It glues the ribosome onto the DNA"
+      ],
+      "answer": 0,
+      "hints": [
+        "The second option describes *mRNA*, the messenger. tRNA does something different — the 't' stands for *transfer*.",
+        "It transfers (delivers) amino acids, matching each one to the codon being read."
+      ]
+    },
+    {
+      "type": "explanation",
+      "markdown": "Put it all together — this whole process has a name: **translation**.\n\n1. **mRNA** carries the recipe (a copy of one gene) to the ribosome.\n2. The **ribosome** reads the mRNA three letters — one **codon** — at a time.\n3. A matching **tRNA** delivers the right **amino acid** for each codon.\n4. The ribosome links the amino acids into a chain, which folds up into a finished **protein**.\n\nThat's the ribosome in a nutshell: a molecular machine that *translates* a genetic message into a working protein, one codon at a time."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "Which sequence correctly describes translation from start to finish?",
+      "options": [
+        "mRNA carries the recipe → ribosome reads it codon by codon → tRNA delivers matching amino acids → amino acids link into a protein",
+        "Protein → tRNA → mRNA → DNA",
+        "DNA leaves the nucleus → enters the ribosome → becomes a protein directly",
+        "Ribosome copies DNA → stores it as mRNA → freezes it for later"
+      ],
+      "answer": 0,
+      "hints": [
+        "Start with the message (mRNA) and end with the product (the protein).",
+        "The order is: message arrives, ribosome reads it in triplets, tRNA delivers amino acids, the chain gets built."
+      ]
+    }
+  ]
+}
