@@ -1,0 +1,91 @@
+{
+  "subject": "energy-bands",
+  "lesson": 1,
+  "title": "Energy Bands 1 — From Atomic Levels to Bloch States and the Brillouin Zone",
+  "blocks": [
+    {
+      "type": "explanation",
+      "markdown": "In an isolated atom, an electron sees a single nucleus and occupies discrete energy levels (orbitals) — you already know these come from solving the Schrödinger equation for a single potential well and filling states per the Pauli exclusion principle.\n\nNow bring $N$ identical atoms together to form a crystal (with $N$ on the order of $10^{23}$). Each atom still 'has' that same atomic orbital, but now every electron feels the potential of *all* the nuclei, not just its own. This is a textbook degenerate-perturbation-theory setup: you start with $N$ atoms each contributing one degenerate atomic level, and the inter-atomic coupling lifts that degeneracy.\n\nJust like two coupled oscillators (or two H atoms forming H$_2$) split one shared level into a bonding and an antibonding state, $N$ coupled atoms split one atomic level into a cluster of distinct — but extremely closely spaced — energy levels. Because $N$ is enormous and the level spacing is tiny, this cluster looks like a continuous *band* of allowed energies.\n\n**Watch for:** exactly how many crystal energy levels a single atomic level splits into when $N$ atoms are brought together — you'll be asked next."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "You bring N identical atoms together to form a crystal, each contributing one atomic orbital at the same energy. Into how many distinct crystal energy levels does that atomic level split (ignoring spin)?",
+      "options": [
+        "N levels, packed so closely together they look like a continuous band",
+        "2 levels, a bonding level and an antibonding level, regardless of N",
+        "1 level, since the atoms are identical and indistinguishable",
+        "An infinite continuum of levels, regardless of N"
+      ],
+      "answer": 0,
+      "hints": [
+        "Think about how many atoms you started with — each atom's orbital must still be accounted for somewhere in the final spectrum.",
+        "Two atoms brought together give a bonding and an antibonding pair (2 states) — extend that same pattern to N atoms instead of 2.",
+        "The number of resulting levels equals the number of original atomic sites, N — they're just packed so closely that macroscopically the band looks continuous."
+      ]
+    },
+    {
+      "type": "explanation",
+      "markdown": "You already know Bloch's theorem, so here's the precise form we'll use going forward. In a crystal, the potential energy is periodic: $U(\\mathbf{r} + \\mathbf{R}) = U(\\mathbf{r})$ for every lattice vector $\\mathbf{R}$. Bloch's theorem says every energy eigenstate of the crystal Hamiltonian can be written as\n\n$$\\psi_{\\mathbf{k}}(\\mathbf{r}) = e^{i\\mathbf{k}\\cdot\\mathbf{r}}\\, u_{\\mathbf{k}}(\\mathbf{r})$$\n\na plane wave $e^{i\\mathbf{k}\\cdot\\mathbf{r}}$ modulating a function $u_{\\mathbf{k}}(\\mathbf{r})$ that carries the microscopic detail of the atomic potential. $\\mathbf{k}$ is called the *crystal momentum* — it plays the role of momentum in the crystal's equations of motion, but $\\hbar\\mathbf{k}$ is **not** the electron's true momentum, since $\\psi_{\\mathbf{k}}$ generally isn't a momentum eigenstate (only a constant $u_{\\mathbf{k}}$ would make it one, which happens only for a free electron with no potential at all).\n\n**Watch for:** the specific periodicity condition that $u_{\\mathbf{k}}(\\mathbf{r})$ itself must satisfy — you'll be asked next."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "According to Bloch's theorem, ψ_k(r) = e^{ik·r} u_k(r). What property must u_k(r) satisfy?",
+      "options": [
+        "u_k(r) has the same periodicity as the crystal lattice: u_k(r + R) = u_k(r) for every lattice vector R",
+        "u_k(r) must itself be a plane wave, u_k(r) = e^{ik·r}",
+        "u_k(r) must vanish exactly at every atomic site",
+        "u_k(r) must be independent of k, the same function for every k"
+      ],
+      "answer": 0,
+      "hints": [
+        "Think about what makes ψ_k(r) different from a plain free-electron plane wave e^{ik·r} — where does the crystal's structure actually enter the wavefunction?",
+        "Bloch's theorem says the *envelope* function must respect the same repeating structure as the atoms themselves.",
+        "Formally: u_k(r + R) = u_k(r) for every lattice vector R — that's the defining periodicity condition."
+      ]
+    },
+    {
+      "type": "explanation",
+      "markdown": "Since $u_{\\mathbf{k}}(\\mathbf{r})$ repeats with the lattice, it can be expanded in a Fourier series using **reciprocal lattice vectors** $\\mathbf{G}$ — vectors defined so that $e^{i\\mathbf{G}\\cdot\\mathbf{R}} = 1$ for every direct lattice vector $\\mathbf{R}$. (You're very comfortable with Fourier series — think of the set of $\\mathbf{G}$'s as exactly the allowed 'frequencies' for any function that shares the lattice's periodicity.)\n\nHere's the key consequence: the Bloch states $\\psi_{\\mathbf{k}}$ and $\\psi_{\\mathbf{k}+\\mathbf{G}}$ turn out to describe the *same physical state*. Shifting $\\mathbf{k}$ by a reciprocal lattice vector just repackages the plane-wave factor into the periodic part $u_{\\mathbf{k}}$, leaving the full wavefunction $\\psi$ unchanged. Because of this redundancy, we never need $\\mathbf{k}$ to range outside one primitive cell of the reciprocal lattice. That cell — specifically the Wigner–Seitz cell centered on $\\mathbf{k}=0$ in reciprocal space — is called the **first Brillouin zone**, and restricting $\\mathbf{k}$ to it is enough to describe every physically distinct electron state in the crystal.\n\n**Watch for:** *why* restricting $\\mathbf{k}$ to the first Brillouin zone loses no physical states — you'll be asked next."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "Why can we restrict the electron wavevector k to lie within the first Brillouin zone without losing any physical states?",
+      "options": [
+        "Because k and k+G (for any reciprocal lattice vector G) label the same Bloch state, so values outside the first BZ just duplicate states already counted inside it",
+        "Because electrons physically cannot carry a true momentum larger than the first BZ boundary allows",
+        "Because the periodic potential U(r) is exactly zero everywhere outside the first Brillouin zone",
+        "Because k-values outside the first BZ correspond to forbidden energy gaps that contain no allowed states at all"
+      ],
+      "answer": 0,
+      "hints": [
+        "Consider what happens to the Bloch decomposition when you shift k by a reciprocal lattice vector G — does the physical wavefunction ψ actually change?",
+        "Recall e^{iG·R} = 1 for lattice vectors R; use that to show ψ_{k+G} can be rewritten in the same Bloch form as ψ_k with a redefined periodic part u.",
+        "Any k outside the first BZ equals some k' inside it plus a reciprocal lattice vector G — it's a duplicate label for a state you already have, not a new physical state."
+      ]
+    },
+    {
+      "type": "explanation",
+      "markdown": "Now let's connect this to your actual goal: deriving where the band gaps come from. The **nearly-free-electron model** treats the crystal's periodic potential $U(\\mathbf{r})$ as a *weak perturbation* on otherwise-free electrons. At zeroth order ($U=0$), you just get ordinary plane waves $|\\mathbf{k}\\rangle$ with the familiar parabolic energy $E^0_{\\mathbf{k}} = \\hbar^2k^2/2m$.\n\nTurning on $U(\\mathbf{r})$ as a perturbation couples $|\\mathbf{k}\\rangle$ to $|\\mathbf{k}-\\mathbf{G}\\rangle$ for every reciprocal lattice vector $\\mathbf{G}$ — a standard Fourier-perturbation result, since the matrix element $\\langle \\mathbf{k}-\\mathbf{G}|U|\\mathbf{k}\\rangle$ is nonzero only when $U$ has a Fourier component at that particular $\\mathbf{G}$. Ordinary (non-degenerate) perturbation theory handles this coupling just fine almost everywhere in the zone — except right at the Brillouin zone boundary.\n\n**Watch for:** what's special about the unperturbed energies $E^0_{\\mathbf{k}}$ and $E^0_{\\mathbf{k}-\\mathbf{G}}$ exactly at the zone boundary, and why that breaks ordinary perturbation theory there — you'll be asked next."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "In the nearly-free-electron model, why does treating U(r) as a perturbation require degenerate perturbation theory specifically near the Brillouin zone boundary?",
+      "options": [
+        "Because at the zone boundary, the unperturbed energies of |k⟩ and |k−G⟩ become equal, so ordinary perturbation theory's energy-denominator formula blows up",
+        "Because the periodic potential U(r) happens to be strongest in real space exactly at the zone boundary",
+        "Because electron spin states become degenerate only at the zone boundary",
+        "Because non-degenerate perturbation theory is only ever valid for a completely free electron with no lattice at all"
+      ],
+      "answer": 0,
+      "hints": [
+        "Non-degenerate perturbation theory has energy denominators like (E⁰_k − E⁰_{k−G}); think about what happens to that formula as the two unperturbed energies approach each other.",
+        "Zone-boundary points are exactly where |k|² = |k−G|², i.e. the free-electron parabolas for k and k−G cross each other.",
+        "When two unperturbed states become degenerate, you must diagonalize the perturbation within that degenerate subspace instead of dividing by a vanishing energy difference — this is what opens the gap."
+      ]
+    },
+    {
+      "type": "explanation",
+      "markdown": "That breakdown is exactly where the physics gets interesting: at the zone boundary, degenerate perturbation theory doesn't just patch up the math — it predicts that the two degenerate plane-wave states mix and repel each other in energy, opening a forbidden gap of size $2|U_{\\mathbf{G}}|$ (twice the relevant Fourier component of the potential) right at the zone boundary. Away from the boundary, the bands look almost exactly like the free-electron parabola.\n\nThat's the full nearly-free-electron picture in outline: bands separated by gaps that open precisely at Brillouin-zone boundaries, with the gap size set by the Fourier components of the crystal potential. Next lesson, we'll do the degenerate perturbation theory explicitly — writing the $2\\times2$ secular equation for $|\\mathbf{k}\\rangle$ and $|\\mathbf{k}-\\mathbf{G}\\rangle$ and solving for $E_\\pm(\\mathbf{k})$ — and then connect this all the way back to *why* metals conduct and insulators don't, via the Pauli exclusion principle and how full a band is."
+    }
+  ]
+}
