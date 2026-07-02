@@ -113,7 +113,7 @@ Block types:
 |---|---|---|
 | `explanation` | `markdown` (Markdown with LaTeX via `$...$` / `$$...$$`) | v1 |
 | `link` | `url`, `title`, `why` (why/what to read) | v1 |
-| `video` | `url`, `title`, `focus` (what to focus on) | v1 |
+| `video` | `url`, `title`, `focus` (what to focus on). Some owners (esp. music labels) disable embedding — the GUI shows a "watch on YouTube" fallback link, but the teacher should prefer videos that allow embedded playback | v1 |
 | `quiz-choice` | `question`, `options[]`, `answer` (correct index), `hints[]` (shown in order on wrong attempts) | v1 |
 | `quiz-free` | reserved — free-text/LaTeX answer evaluated by Claude | deferred to Agent SDK phase |
 | `manim` | reserved — manim-rendered animation | deferred |

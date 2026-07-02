@@ -117,7 +117,8 @@ function renderBlock(block, index) {
   } else if (block.type === "video") {
     const yt = (block.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/) || [])[1];
     const player = yt
-      ? `<iframe width="560" height="315" src="https://www.youtube.com/embed/${yt}" frameborder="0" allowfullscreen></iframe>`
+      ? `<iframe width="560" height="315" src="https://www.youtube.com/embed/${yt}" frameborder="0" allowfullscreen></iframe>
+         <br><small>Video not playing? Some owners disable embedding — <a href="${block.url}" target="_blank">watch it on YouTube</a>.</small>`
       : `<a href="${block.url}" target="_blank">▶ ${block.title}</a>`;
     div.innerHTML = `<p><b>${block.title}</b></p>${player}<p>${block.focus || ""}</p>`;
     if (isCurrent) div.appendChild(continueButton());

@@ -19,21 +19,21 @@
     },
     {
       "type": "video",
-      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      "title": "Embedded video test",
-      "focus": "This block tests that YouTube videos embed as a player. Guided-reading check: notice what the singer promises never to do — you'll be asked about it."
+      "url": "https://www.youtube.com/watch?v=jNQXAC9IVRw",
+      "title": "Embedded video test — 'Me at the zoo', the first video ever uploaded to YouTube",
+      "focus": "This block tests that YouTube videos embed as a player. Guided-reading check: notice which animals stand behind the speaker — you'll be asked about it."
     },
     {
       "type": "quiz-choice",
-      "question": "Guided-reading check: what does the singer promise never to do?",
+      "question": "Guided-reading check: which animals stand behind the speaker in the video?",
       "options": [
-        "Give you up",
-        "Sing another song",
-        "Dance",
-        "Wear a trench coat"
+        "Elephants",
+        "Giraffes",
+        "Lions",
+        "Penguins"
       ],
       "answer": 0,
-      "hints": ["It's the song's title."]
+      "hints": ["He mentions their 'really, really, really long trunks'."]
     },
     {
       "type": "explanation",
