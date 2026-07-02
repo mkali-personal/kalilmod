@@ -69,6 +69,22 @@
     },
     {
       "type": "quiz-choice",
+      "question": "[Dummy question — confirming the 'message the teacher' feedback channel works.] Earlier in this lesson, what did we call the primitive cell of the reciprocal lattice centered on k = 0?",
+      "options": [
+        "The first Brillouin zone",
+        "The Wigner–Seitz radius",
+        "The conventional unit cell",
+        "The reciprocal lattice vector"
+      ],
+      "answer": 0,
+      "hints": [
+        "It's the same term used for the region k is restricted to.",
+        "Two words, the second one is 'zone'.",
+        "First Brillouin zone."
+      ]
+    },
+    {
+      "type": "quiz-choice",
       "question": "In the nearly-free-electron model, why does treating U(r) as a perturbation require degenerate perturbation theory specifically near the Brillouin zone boundary?",
       "options": [
         "Because at the zone boundary, the unperturbed energies of |k⟩ and |k−G⟩ become equal, so ordinary perturbation theory's energy-denominator formula blows up",

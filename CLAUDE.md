@@ -139,7 +139,7 @@ Decisions already made with the user — do not re-litigate them:
 - **Retry-with-hints gating** for wrong answers (see Lesson flow rules).
 - **Single lesson page with sequential reveal**, not a chat interface.
 - **Manim deferred** to a later phase; the block type is reserved so the schema won't churn.
-- **GUI styling is out of scope for now** — make it work first.
+- **GUI styling**: a modern, elegant baseline is now in place (CSS-only, single file, no framework — automatic light/dark mode, card layout, styled quiz options, reveal animation). Keep future styling in the same lightweight, dependency-free spirit; no build step or frontend framework.
 
 ## Current status & roadmap
 
