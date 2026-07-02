@@ -1,0 +1,51 @@
+{
+  "subject": "compton-scattering",
+  "lesson": 1,
+  "title": "Compton Scattering — Basics",
+  "blocks": [
+    {
+      "type": "explanation",
+      "markdown": "In **Compton scattering**, a photon scatters off a charged particle (usually an electron) and transfers part of its energy to it. The photon leaves with a longer wavelength. The wavelength shift depends only on the scattering angle:\n\n$$\\Delta\\lambda = \\frac{h}{m_e c}(1 - \\cos\\theta)$$\n\nThe constant $\\frac{h}{m_e c} \\approx 2.43\\,\\mathrm{pm}$ is called the *Compton wavelength* of the electron."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "Which particles participate in a Compton scattering process?",
+      "options": [
+        "A photon and an electron",
+        "Two photons",
+        "A proton and a neutron",
+        "An electron and a positron"
+      ],
+      "answer": 0,
+      "hints": [
+        "One of the participants carries the electromagnetic wave.",
+        "The other participant is the lightest charged particle in an atom."
+      ]
+    },
+    {
+      "type": "link",
+      "url": "https://en.wikipedia.org/wiki/Compton_scattering",
+      "title": "Wikipedia: Compton scattering",
+      "why": "Read the introduction and the 'Description' section for the historical context of Compton's 1923 experiment."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "According to the formula above, when is the wavelength shift Δλ the largest?",
+      "options": [
+        "When the photon scatters backwards (θ = 180°)",
+        "When the photon passes straight through (θ = 0°)",
+        "When the photon scatters at θ = 90°",
+        "The shift does not depend on the angle"
+      ],
+      "answer": 0,
+      "hints": [
+        "Look at the (1 − cos θ) factor: for which angle is it maximal?",
+        "cos 180° = −1, so the factor becomes 2 — its largest possible value."
+      ]
+    },
+    {
+      "type": "explanation",
+      "markdown": "Well done! You now know the basic kinematics of Compton scattering. In the next lesson we would derive the formula from conservation of **energy** and **momentum**, treating the photon as a particle with $E = h\\nu$ and $p = h/\\lambda$."
+    }
+  ]
+}

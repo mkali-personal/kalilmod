@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Kalilmod</title>
+<script src="https://cdn.jsdelivr.net/npm/marked@12/marked.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.css">
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/katex.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/katex@0.16/dist/contrib/auto-render.min.js"></script>
+<style>
+  /* Minimal styling only - proper design is out of scope for now (see CLAUDE.md). */
+  body { font-family: sans-serif; max-width: 760px; margin: 2em auto; padding: 0 1em; }
+  .block { border: 1px solid #ccc; border-radius: 8px; padding: 1em; margin: 1em 0; }
+  .quiz.correct { border-color: #2a2; }
+  .quiz.revealed { border-color: #a22; }
+  .hint { background: #ffd; padding: 0.5em; margin: 0.5em 0; border-radius: 4px; }
+  .feedback-wrong { color: #a22; }
+  .feedback-right { color: #2a2; }
+  button { margin: 0.3em 0.3em 0 0; }
+  label { display: block; margin: 0.3em 0; }
+</style>
+</head>
+<body>
+<h1 id="title">Kalilmod</h1>
+<div id="app">Loading…</div>
+
+<script>
+"use strict";
+const $app = document.getElementById("app");
+let subject = null, lessonFile = null, lesson = null;
+let progress = {};   // whole progress.json for the subject
+let state = null;    // progress[lessonFile] = { currentBlock, quiz: { idx: {retries, correct, revealed} } }
+
+function renderMath(el) {
+  renderMathInElement(el, { delimiters: [
+    { left: "$$", right: "$$", display: true },
+    { left: "$", right: "$", display: false } ] });
+}
+
+async function saveProgress() {
+  progress[lessonFile] = state;
+  await fetch("/api/progress?subject=" + encodeURIComponent(subject), {
+    method: "POST", body: JSON.stringify(progress) });
+}
+
+async function main() {
+  const subjects = await (await fetch("/api/subjects")).json();
+  if (subjects.length === 0) { $app.textContent = "No subjects found in subjects/."; return; }
+  $app.innerHTML = "<h2>Choose a subject</h2>";
+  for (const s of subjects) {
+    for (const l of s.lessons) {
+      const btn = document.createElement("button");
+      btn.textContent = s.subject + " — " + l;
+      btn.onclick = () => openLesson(s.subject, l);
+      $app.appendChild(btn);
+      $app.appendChild(document.createElement("br"));
+    }
+  }
+}
+
+async function openLesson(subj, file) {
+  subject = subj; lessonFile = file;
+  lesson = await (await fetch(`/api/lesson?subject=${encodeURIComponent(subj)}&lesson=${encodeURIComponent(file)}`)).json();
+  progress = await (await fetch("/api/progress?subject=" + encodeURIComponent(subj))).json();
+  state = progress[lessonFile] || { currentBlock: 0, quiz: {} };
+  document.getElementById("title").textContent = lesson.title;
+  renderLesson();
+}
+
+function renderLesson() {
+  $app.innerHTML = "";
+  const upto = Math.min(state.currentBlock, lesson.blocks.length - 1);
+  for (let i = 0; i <= upto; i++) $app.appendChild(renderBlock(lesson.blocks[i], i));
+  if (state.currentBlock >= lesson.blocks.length) {
+    const done = document.createElement("div");
+    done.className = "block";
+    done.innerHTML = "<b>Lesson complete!</b> Return to your Claude Code terminal session to generate the next lesson.";
+    $app.appendChild(done);
+  }
+  renderMath($app);
+}
+
+function unlockNext() {
+  state.currentBlock++;
+  saveProgress();
+  renderLesson();
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+function renderBlock(block, index) {
+  const div = document.createElement("div");
+  div.className = "block " + block.type;
+  const isCurrent = index === state.currentBlock;
+
+  if (block.type === "explanation") {
+    div.innerHTML = marked.parse(block.markdown);
+    if (isCurrent) div.appendChild(continueButton());
+  } else if (block.type === "link") {
+    div.innerHTML = `<a href="${block.url}" target="_blank">${block.title}</a><p>${block.why || ""}</p>`;
+    if (isCurrent) div.appendChild(continueButton());
+  } else if (block.type === "video") {
+    div.innerHTML = `<a href="${block.url}" target="_blank">▶ ${block.title}</a><p>${block.focus || ""}</p>`;
+    if (isCurrent) div.appendChild(continueButton());
+  } else if (block.type === "quiz-choice") {
+    renderQuiz(div, block, index);
+  } else {
+    div.textContent = `[Unsupported block type: ${block.type}]`;
+    if (isCurrent) div.appendChild(continueButton());
+  }
+  return div;
+}
+
+function continueButton() {
+  const btn = document.createElement("button");
+  btn.textContent = "Continue →";
+  btn.onclick = unlockNext;
+  return btn;
+}
+
+function renderQuiz(div, block, index) {
+  const qs = state.quiz[index] || (state.quiz[index] = { retries: 0, correct: false, revealed: false });
+  const answered = qs.correct || qs.revealed;
+  div.classList.add(qs.correct ? "correct" : qs.revealed ? "revealed" : "open");
+  div.innerHTML = `<p><b>Quiz:</b> ${block.question}</p>`;
+
+  const form = document.createElement("form");
+  block.options.forEach((opt, i) => {
+    const label = document.createElement("label");
+    const checked = answered && i === block.answer ? "checked" : "";
+    label.innerHTML = `<input type="radio" name="q${index}" value="${i}" ${checked} ${answered ? "disabled" : ""}> ${opt}`;
+    form.appendChild(label);
+  });
+  div.appendChild(form);
+
+  const feedback = document.createElement("p");
+  div.appendChild(feedback);
+  if (qs.correct) { feedback.className = "feedback-right"; feedback.textContent = "Correct!"; }
+  if (qs.revealed) { feedback.className = "feedback-wrong"; feedback.textContent = "Answer shown: " + block.options[block.answer]; }
+  if (answered) return;
+
+  // hints already earned by previous wrong attempts
+  const hints = block.hints || [];
+  for (let h = 0; h < Math.min(qs.retries, hints.length); h++) {
+    const hint = document.createElement("div");
+    hint.className = "hint"; hint.textContent = "Hint: " + hints[h];
+    div.appendChild(hint);
+  }
+
+  const check = document.createElement("button");
+  check.textContent = "Check answer";
+  check.onclick = () => {
+    const sel = form.querySelector("input:checked");
+    if (!sel) { feedback.textContent = "Pick an answer first."; return; }
+    if (Number(sel.value) === block.answer) {
+      qs.correct = true;
+      unlockNext();
+    } else {
+      qs.retries++;
+      saveProgress();
+      renderLesson(); // re-render to show the next hint
+    }
+  };
+  div.appendChild(check);
+
+  // "Show answer" appears once all hints are used up (or there are none)
+  if (qs.retries >= hints.length && qs.retries > 0) {
+    const reveal = document.createElement("button");
+    reveal.textContent = "Show answer";
+    reveal.onclick = () => { qs.revealed = true; unlockNext(); };
+    div.appendChild(reveal);
+  }
+  if (qs.retries > 0) {
+    feedback.className = "feedback-wrong";
+    feedback.textContent = "Not quite — try again.";
+  }
+}
+
+main();
+</script>
+</body>
+</html>

@@ -1,0 +1,138 @@
+"""Kalilmod local server.
+
+Serves the GUI (gui/) and a small JSON API over the subjects/ folder.
+Standard library only - no dependencies.
+
+Usage:  python serve.py [--port 8000] [--no-browser]
+
+API:
+  GET  /api/subjects                       -> [{"subject", "lessons": [...]}]
+  GET  /api/lesson?subject=X&lesson=F.json -> lesson file content
+  GET  /api/progress?subject=X             -> progress.json content (or {})
+  POST /api/progress?subject=X             -> overwrite progress.json with body
+"""
+import argparse
+import json
+import os
+import threading
+import webbrowser
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
+
+ROOT = os.path.dirname(os.path.abspath(__file__))
+SUBJECTS_DIR = os.path.join(ROOT, "subjects")
+GUI_DIR = os.path.join(ROOT, "gui")
+
+MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
+        ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml"}
+
+
+def safe_subject_path(subject, filename):
+    """Resolve a file inside a subject folder, refusing path traversal."""
+    path = os.path.join(SUBJECTS_DIR, os.path.basename(subject), os.path.basename(filename))
+    return path
+
+
+class Handler(BaseHTTPRequestHandler):
+    def _send_json(self, code, obj):
+        data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
+        self._send_bytes(code, data, "application/json")
+
+    def _send_bytes(self, code, data, ctype):
+        self.send_response(code)
+        self.send_header("Content-Type", ctype + "; charset=utf-8")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def do_GET(self):
+        url = urlparse(self.path)
+        query = parse_qs(url.query)
+        if url.path == "/api/subjects":
+            self._send_json(200, self.list_subjects())
+        elif url.path == "/api/lesson":
+            self.send_subject_file(query, query.get("lesson", [""])[0])
+        elif url.path == "/api/progress":
+            self.send_subject_file(query, "progress.json", default={})
+        else:
+            self.send_static(url.path)
+
+    def do_POST(self):
+        url = urlparse(self.path)
+        query = parse_qs(url.query)
+        if url.path != "/api/progress" or "subject" not in query:
+            self._send_json(404, {"error": "unknown endpoint"})
+            return
+        length = int(self.headers.get("Content-Length", 0))
+        body = self.rfile.read(length)
+        try:
+            progress = json.loads(body)
+        except ValueError:
+            self._send_json(400, {"error": "body is not valid JSON"})
+            return
+        path = safe_subject_path(query["subject"][0], "progress.json")
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(progress, f, ensure_ascii=False, indent=2)
+        self._send_json(200, {"ok": True})
+
+    def list_subjects(self):
+        subjects = []
+        if os.path.isdir(SUBJECTS_DIR):
+            for name in sorted(os.listdir(SUBJECTS_DIR)):
+                folder = os.path.join(SUBJECTS_DIR, name)
+                if not os.path.isdir(folder):
+                    continue
+                lessons = sorted(f for f in os.listdir(folder)
+                                 if f.startswith("lesson-") and f.endswith(".json"))
+                if lessons:
+                    subjects.append({"subject": name, "lessons": lessons})
+        return subjects
+
+    def send_subject_file(self, query, filename, default=None):
+        if "subject" not in query or not filename:
+            self._send_json(400, {"error": "missing subject/lesson parameter"})
+            return
+        path = safe_subject_path(query["subject"][0], filename)
+        if not os.path.isfile(path):
+            if default is not None:
+                self._send_json(200, default)
+            else:
+                self._send_json(404, {"error": "not found"})
+            return
+        with open(path, "rb") as f:
+            self._send_bytes(200, f.read(), "application/json")
+
+    def send_static(self, path):
+        if path == "/":
+            path = "/index.html"
+        full = os.path.normpath(os.path.join(GUI_DIR, path.lstrip("/")))
+        if not full.startswith(GUI_DIR) or not os.path.isfile(full):
+            self._send_json(404, {"error": "not found"})
+            return
+        ext = os.path.splitext(full)[1].lower()
+        with open(full, "rb") as f:
+            self._send_bytes(200, f.read(), MIME.get(ext, "application/octet-stream"))
+
+    def log_message(self, fmt, *args):  # keep the terminal quiet
+        pass
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Kalilmod local server")
+    parser.add_argument("--port", type=int, default=8000)
+    parser.add_argument("--no-browser", action="store_true")
+    args = parser.parse_args()
+
+    server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
+    url = f"http://127.0.0.1:{args.port}/"
+    print(f"Kalilmod running at {url}  (Ctrl+C to stop)")
+    if not args.no_browser:
+        threading.Timer(0.5, webbrowser.open, [url]).start()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        server.shutdown()
+
+
+if __name__ == "__main__":
+    main()
