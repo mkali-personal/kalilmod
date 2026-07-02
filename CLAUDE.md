@@ -13,7 +13,7 @@ Claude Code serves two roles in this repository:
 1. **Builder** — writes the tool itself (server, GUI viewer, docs) and documents it so future sessions can use it.
 2. **Teacher** — in future sessions, reads the content-creation instructions (`docs/teacher-guide.md`) and uses them to inject lesson content and orchestrate the learning process.
 
-> **Current role: Builder.** The repository is in its building stage. When the tool exists and is documented, this marker flips to Teacher as the default role for new sessions.
+> **Current role: both.** The v1 tool works (server, viewer, sample subjects) and the teacher procedure is documented. If the user asks to **learn a subject**, act as Teacher: follow `docs/teacher-guide.md`. If the user asks to **develop the tool**, act as Builder.
 
 ## Architecture (v1)
 
@@ -144,7 +144,7 @@ Decisions already made with the user — do not re-litigate them:
 ## Current status & roadmap
 
 - **Phase 0 — this document.** Done.
-- **Phase 1 — minimal working tool**: `serve.py`, `gui/` viewer supporting the four v1 block types, and one hand-written sample subject under `subjects/` to prove the flow end to end.
-- **Phase 2 — teacher enablement**: write `docs/teacher-guide.md` (how a teacher session interviews, authors lesson JSON, launches the server, reads progress), then run the first real Claude-taught subject.
+- **Phase 1 — minimal working tool.** Done: `serve.py`, `gui/index.html` viewer (four v1 block types, video embeds, progress status, restart), sample subjects `compton-scattering` and `_demo` (mechanism test).
+- **Phase 2 — teacher enablement.** `docs/teacher-guide.md` written; remaining: run the first real Claude-taught subject and fix whatever that surfaces.
 - **Phase 3 — free-text evaluation**: integrate the Agent SDK (`claude-agent-sdk` + `ANTHROPIC_API_KEY`) to enable `quiz-free` blocks and in-GUI feedback.
 - **Phase 4 — manim blocks**: render and embed manim animations as a block type.
