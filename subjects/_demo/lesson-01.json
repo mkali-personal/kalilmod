@@ -1,0 +1,43 @@
+{
+  "subject": "_demo",
+  "lesson": 1,
+  "title": "Kalilmod Mechanism Demo",
+  "blocks": [
+    {
+      "type": "explanation",
+      "markdown": "This demo lesson exists to **test the tool's mechanisms**, not to teach. In the next quiz, please answer **wrong twice on purpose** to see the hint system, then wrong again to see the *Show answer* button."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "TEST QUIZ — answer wrong on purpose. What is 2 + 2?",
+      "options": ["4", "5", "22", "Fish"],
+      "answer": 0,
+      "hints": [
+        "This is hint #1 — it appeared because you answered wrong once.",
+        "This is hint #2 — after this, a 'Show answer' button should appear on your next wrong attempt."
+      ]
+    },
+    {
+      "type": "video",
+      "url": "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+      "title": "Embedded video test",
+      "focus": "This block tests that YouTube videos embed as a player. Guided-reading check: notice what the singer promises never to do — you'll be asked about it."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "Guided-reading check: what does the singer promise never to do?",
+      "options": [
+        "Give you up",
+        "Sing another song",
+        "Dance",
+        "Wear a trench coat"
+      ],
+      "answer": 0,
+      "hints": ["It's the song's title."]
+    },
+    {
+      "type": "explanation",
+      "markdown": "Demo complete. If you saw: sequential reveal, two hints, a *Show answer* button, an embedded video, LaTeX like $E = mc^2$, and this final block — everything works. Use *⟲ Restart lesson* to run the test again."
+    }
+  ]
+}

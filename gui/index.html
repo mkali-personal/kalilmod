@@ -48,11 +48,18 @@ async function main() {
   if (subjects.length === 0) { $app.textContent = "No subjects found in subjects/."; return; }
   $app.innerHTML = "<h2>Choose a subject</h2>";
   for (const s of subjects) {
+    const prog = await (await fetch("/api/progress?subject=" + encodeURIComponent(s.subject))).json();
     for (const l of s.lessons) {
       const btn = document.createElement("button");
       btn.textContent = s.subject + " — " + l;
       btn.onclick = () => openLesson(s.subject, l);
       $app.appendChild(btn);
+      const st = prog[l];
+      const status = document.createElement("span");
+      status.textContent = !st ? " (not started)"
+        : st.currentBlock >= st.totalBlocks ? " ✓ completed"
+        : ` (in progress — block ${st.currentBlock + 1}/${st.totalBlocks})`;
+      $app.appendChild(status);
       $app.appendChild(document.createElement("br"));
     }
   }
@@ -63,6 +70,7 @@ async function openLesson(subj, file) {
   lesson = await (await fetch(`/api/lesson?subject=${encodeURIComponent(subj)}&lesson=${encodeURIComponent(file)}`)).json();
   progress = await (await fetch("/api/progress?subject=" + encodeURIComponent(subj))).json();
   state = progress[lessonFile] || { currentBlock: 0, quiz: {} };
+  state.totalBlocks = lesson.blocks.length;
   document.getElementById("title").textContent = lesson.title;
   renderLesson();
 }
@@ -77,6 +85,14 @@ function renderLesson() {
     done.innerHTML = "<b>Lesson complete!</b> Return to your Claude Code terminal session to generate the next lesson.";
     $app.appendChild(done);
   }
+  const restart = document.createElement("button");
+  restart.textContent = "⟲ Restart lesson";
+  restart.onclick = () => {
+    state = { currentBlock: 0, quiz: {}, totalBlocks: lesson.blocks.length };
+    saveProgress();
+    renderLesson();
+  };
+  $app.appendChild(restart);
   renderMath($app);
 }
 
@@ -99,7 +115,11 @@ function renderBlock(block, index) {
     div.innerHTML = `<a href="${block.url}" target="_blank">${block.title}</a><p>${block.why || ""}</p>`;
     if (isCurrent) div.appendChild(continueButton());
   } else if (block.type === "video") {
-    div.innerHTML = `<a href="${block.url}" target="_blank">▶ ${block.title}</a><p>${block.focus || ""}</p>`;
+    const yt = (block.url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/)([\w-]{11})/) || [])[1];
+    const player = yt
+      ? `<iframe width="560" height="315" src="https://www.youtube.com/embed/${yt}" frameborder="0" allowfullscreen></iframe>`
+      : `<a href="${block.url}" target="_blank">▶ ${block.title}</a>`;
+    div.innerHTML = `<p><b>${block.title}</b></p>${player}<p>${block.focus || ""}</p>`;
     if (isCurrent) div.appendChild(continueButton());
   } else if (block.type === "quiz-choice") {
     renderQuiz(div, block, index);
