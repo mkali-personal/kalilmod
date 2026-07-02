@@ -29,18 +29,18 @@
     },
     {
       "type": "quiz-choice",
-      "question": "According to Bloch's theorem, ψ_k(r) = e^{ik·r} u_k(r). What property must u_k(r) satisfy?",
+      "question": "According to Bloch's theorem, $\\psi_{\\mathbf{k}}(\\mathbf{r}) = e^{i\\mathbf{k}\\cdot\\mathbf{r}}\\, u_{\\mathbf{k}}(\\mathbf{r})$. What property must $u_{\\mathbf{k}}(\\mathbf{r})$ satisfy?",
       "options": [
-        "u_k(r) has the same periodicity as the crystal lattice: u_k(r + R) = u_k(r) for every lattice vector R",
-        "u_k(r) must itself be a plane wave, u_k(r) = e^{ik·r}",
-        "u_k(r) must vanish exactly at every atomic site",
-        "u_k(r) must be independent of k, the same function for every k"
+        "$u_{\\mathbf{k}}(\\mathbf{r})$ has the same periodicity as the crystal lattice: $u_{\\mathbf{k}}(\\mathbf{r} + \\mathbf{R}) = u_{\\mathbf{k}}(\\mathbf{r})$ for every lattice vector $\\mathbf{R}$",
+        "$u_{\\mathbf{k}}(\\mathbf{r})$ must itself be a plane wave, $u_{\\mathbf{k}}(\\mathbf{r}) = e^{i\\mathbf{k}\\cdot\\mathbf{r}}$",
+        "$u_{\\mathbf{k}}(\\mathbf{r})$ must vanish exactly at every atomic site",
+        "$u_{\\mathbf{k}}(\\mathbf{r})$ must be independent of $\\mathbf{k}$, the same function for every $\\mathbf{k}$"
       ],
       "answer": 0,
       "hints": [
-        "Think about what makes ψ_k(r) different from a plain free-electron plane wave e^{ik·r} — where does the crystal's structure actually enter the wavefunction?",
-        "Bloch's theorem says the *envelope* function must respect the same repeating structure as the atoms themselves.",
-        "Formally: u_k(r + R) = u_k(r) for every lattice vector R — that's the defining periodicity condition."
+        "Think about what makes $\\psi_{\\mathbf{k}}(\\mathbf{r})$ different from a plain free-electron plane wave $e^{i\\mathbf{k}\\cdot\\mathbf{r}}$ — where does the crystal's structure actually enter the wavefunction?",
+        "Bloch's theorem says the envelope function must respect the same repeating structure as the atoms themselves.",
+        "Formally: $u_{\\mathbf{k}}(\\mathbf{r} + \\mathbf{R}) = u_{\\mathbf{k}}(\\mathbf{r})$ for every lattice vector $\\mathbf{R}$ — that's the defining periodicity condition."
       ]
     },
     {

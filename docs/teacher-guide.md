@@ -49,6 +49,8 @@ Block types (see `CLAUDE.md` for the full field table and a worked example):
 - `quiz-free` is **not implemented yet** — do not use it.
 - `manim` is **not implemented yet**, and when it is, it will be for **animations only** and used **only if manim is already installed** on this machine (check with `python -c "import manim"` and confirm a render succeeds; otherwise fall back to a `graph` or explanation). Never add manim/ffmpeg to the project's requirements — it is an optional, author-time tool.
 
+**Math renders everywhere via KaTeX — always use `$` delimiters.** Every visible text field is passed through KaTeX: not just `explanation.markdown`, but also quiz `question`, every entry in `options[]` and `hints[]`, and graph `title`/`caption`. Wrap all math in `$...$` (inline) or `$$...$$` (display). **Do not write math as raw Unicode** (e.g. `ψ_k(r)`, `e^{ik·r}`, `u_k(r + R)`): without `$` delimiters KaTeX renders nothing and the student sees literal text like `e^{ik·r}`. Write `$\psi_{\mathbf{k}}(\mathbf{r})$`, `$e^{i\mathbf{k}\cdot\mathbf{r}}$`, `$u_{\mathbf{k}}(\mathbf{r}+\mathbf{R})$` instead. This is the single most common authoring mistake — check every option and hint, not only the explanations. (Note: `options[]` and `hints[]` are rendered as plain text + KaTeX, so Markdown like `*italics*` will **not** work there — use it only in `explanation.markdown`.)
+
 Pedagogical obligations (non-negotiable):
 
 - **Frequent alternation**: never more than 2–3 non-quiz blocks in a row without a quiz.
