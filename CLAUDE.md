@@ -1,27 +1,149 @@
 # Kalilmod
 
-This repository is a general teaching tool that utilizes Claude Code to construct it's content. It comes to solve a common problem in today's learning process: Today, since LLM's and the internet in general provide such good explanation for everything, one can easily read explanation, go over them very briefly, get the feeling of understanding, and then forget what they learned immediately afterward. Real learning can happen only when the student has to actively solve a problem. The solution is to force interactive learning, where the user has to stand small tests throughout the learning process. This way, the user must engage with the material, and learning is done properly.
+## What is Kalilmod
 
-The creator of the repository is Michael Kali. "Kalilmod" in Hebrew sounds like (קל ללמוד), which means "easy to learn"
+Kalilmod is an interactive teaching tool built around Claude Code. It solves a common problem in modern self-learning: LLMs and the internet provide such good explanations that a student can skim them, feel like they understand, and forget everything shortly after. Real learning happens only when the student must actively solve problems. Kalilmod forces interactive learning by alternating short explanations with frequent small quizzes — the student must engage with the material at every step instead of passively reading.
 
-Claude code serves two roles in this repository:
-1) Building this repository
-   1) Writing the tool.
-   2) documenting it for the Claude Code of the second role:
-2) In future sessions - Claude serves as the teacher that reads the content creation instructions and uses them to inject content into the tool and to create the teaching content. 
+The creator of the repository is Michael Kali. "Kalilmod" sounds like the Hebrew קל ללמוד, meaning "easy to learn".
 
-Currently the repository is in building stages, and so Claude Code serve the first role: It will write the tools, and document it properly so that future Claude Code sessions can easily and efficiently use them to inject content.
+## Claude Code's two roles
 
-It's final workflow will work as follows:
+Claude Code serves two roles in this repository:
 
-- Each topic is saved as a different folder in the "subjects" subdirectory.
-- When the user runs the main script, which opens as an HTML gui. This opens in the background a Claude Code session, which orchestrates the lesson. they can choose whether to return to an existing subject or to start a new one.
-- If they choose to start a new subject, they are prompted to  specify a subject which they want to study (e.g. Roman empire early days, Bragg scattering, C# coding, etc.).
-- Claude then prompts the user multiple questions, to understand what do they already know, and what do they need to learn (e.g., "Do you know where was the roman empire built?" "Which particles participate in a Compton Scattering process?", etc.).
-  - Those questions can come both as free text questions, or choice questions.
-- After Claude Code finalizing his evaluation of the user's understanding, it writes content to the teaching tool, constructed of explanations, links to external materials such as Wikipedia pages or YouTube videos, manim animations, and most importantly: frequent questions that make sure the user understood what they read/watched.
-- For questions that can be automatically evaluated - the process of answering can be done within the tool's mechanism. For free text/Latex answers - the user's answer will be returned to Claude to evaluate it as LLMs do and feedback the user.
-- The tool is used by people that actually want to learn, and so if the answer of some multi-choice question is encoded into the html or the subject's folder - it is fine: the tool does not have to be resilient to cheating by students.
-- The main point of the tool is the interactive learning - instead of reading only/reading a lot and then having to complete a long test, the teaching tool (Kalilmod) alternates between explanation and quizzes frequently.
-- Claude (serving as the teacher) does not have to create the entire content at once. If the user chooses to continue after the first few steps, then Claude can generate more content, indefinitely.
-- In those early stages - styling the gui is not important, since we first want to make it work.
+1. **Builder** — writes the tool itself (server, GUI viewer, docs) and documents it so future sessions can use it.
+2. **Teacher** — in future sessions, reads the content-creation instructions (`docs/teacher-guide.md`) and uses them to inject lesson content and orchestrate the learning process.
+
+> **Current role: Builder.** The repository is in its building stage. When the tool exists and is documented, this marker flips to Teacher as the default role for new sessions.
+
+## Architecture (v1)
+
+### Feasibility background
+
+The original idea — an HTML GUI backed by a background Claude session — is fully possible via the **Claude Agent SDK for Python** (`pip install claude-agent-sdk`): programmatic multi-turn sessions, streaming, resuming a session later (`resume=session_id`), and file tools scoped to a directory. It works on Windows. **However**, the Agent SDK requires an `ANTHROPIC_API_KEY` (Anthropic Console account, pay-per-token); it does not use the Claude Code subscription login. To avoid extra billing, **v1 uses the interactive Claude Code terminal session itself as the teacher** (subscription auth, zero marginal cost). The design keeps the lesson-file contract independent of who writes it, so the SDK can be swapped in later without redesign.
+
+### v1 workflow
+
+```mermaid
+flowchart LR
+    A[Terminal: Claude Code<br>teacher session] -->|1. interview user,<br>assess prior knowledge| A
+    A -->|2. writes| B["subjects/&lt;topic&gt;/lesson-NN.json"]
+    A -->|3. launches| C[Python local server]
+    C --> D[Browser GUI:<br>sequential block reveal,<br>quiz gating with hints]
+    D -->|answers, retries| E["subjects/&lt;topic&gt;/progress.json"]
+    E -->|4. user returns to terminal;<br>Claude reads progress| A
+```
+
+1. The user opens a Claude Code session in this repo and asks to start a new subject or continue an existing one (existing subjects are the folders under `subjects/`).
+2. Claude (teacher role) interviews the user **in the terminal conversation** to assess prior knowledge — free-text and choice questions (e.g. "Do you know where the Roman empire was built?", "Which particles participate in Compton scattering?").
+3. Based on the assessment, Claude writes `subjects/<topic>/lesson-NN.json` (typed content blocks, including per-question hints), then launches the local server, which opens the browser at the lesson page.
+4. The GUI reveals blocks one at a time. Quizzes gate progress: a wrong answer shows the next pre-authored hint and allows a retry; the next block unlocks only after a correct answer or an explicit "show answer". The server persists all answers and retry counts to `subjects/<topic>/progress.json`.
+5. When the lesson content runs out or the user wants more, they return to the terminal session. Claude reads `progress.json` (which questions were hard, how many retries) and generates the next lesson file. Content is generated incrementally, indefinitely — never a whole course up front.
+
+### Upgrade path (later phase)
+
+Swapping the terminal teacher for a background Agent SDK session (`claude-agent-sdk` + `ANTHROPIC_API_KEY`) enables:
+
+- A true single-window experience — the GUI talks to the teacher directly, no terminal round-trips.
+- **Live free-text/LaTeX answer evaluation inside the GUI**: the user's answer is sent to the SDK session, which evaluates it as LLMs do and returns feedback.
+- Resuming a teaching session days later via the SDK's session-resume support.
+
+Nothing in the lesson-file format or server needs to change for this upgrade; only the transport of "who generates content and evaluates free text" changes.
+
+## Planned repository layout
+
+```
+serve.py                     # local server: serves the GUI, persists progress
+gui/                         # static HTML/JS lesson viewer (one generic viewer for all subjects)
+subjects/<topic>/            # one folder per subject
+    lesson-01.json           # lesson files, numbered sequentially
+    lesson-02.json
+    progress.json            # answers, retries, current position — written by the server
+docs/teacher-guide.md        # content-injection instructions for future teacher sessions
+CLAUDE.md                    # this file
+```
+
+## Lesson content format
+
+A lesson file is a JSON object with metadata and an ordered list of typed blocks. One generic viewer renders all block types.
+
+```json
+{
+  "subject": "compton-scattering",
+  "lesson": 1,
+  "title": "Compton Scattering — Basics",
+  "blocks": [
+    {
+      "type": "explanation",
+      "markdown": "In **Compton scattering**, a photon scatters off a charged particle (usually an electron) and transfers part of its energy. The wavelength shift is $\\Delta\\lambda = \\frac{h}{m_e c}(1 - \\cos\\theta)$."
+    },
+    {
+      "type": "link",
+      "url": "https://en.wikipedia.org/wiki/Compton_scattering",
+      "title": "Wikipedia: Compton scattering",
+      "why": "Read the 'Description' section for the historical context of the 1923 experiment."
+    },
+    {
+      "type": "video",
+      "url": "https://www.youtube.com/watch?v=example",
+      "title": "Compton scattering derivation",
+      "focus": "Watch how conservation of energy and momentum are combined; you'll be quizzed on the assumptions."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "Which particles participate in a Compton scattering process?",
+      "options": [
+        "A photon and an electron",
+        "Two photons",
+        "A proton and a neutron",
+        "An electron and a positron"
+      ],
+      "answer": 0,
+      "hints": [
+        "One of the participants carries the electromagnetic wave.",
+        "The other participant is the lightest charged particle in an atom."
+      ]
+    }
+  ]
+}
+```
+
+Block types:
+
+| Type | Fields | Status |
+|---|---|---|
+| `explanation` | `markdown` (Markdown with LaTeX via `$...$` / `$$...$$`) | v1 |
+| `link` | `url`, `title`, `why` (why/what to read) | v1 |
+| `video` | `url`, `title`, `focus` (what to focus on) | v1 |
+| `quiz-choice` | `question`, `options[]`, `answer` (correct index), `hints[]` (shown in order on wrong attempts) | v1 |
+| `quiz-free` | reserved — free-text/LaTeX answer evaluated by Claude | deferred to Agent SDK phase |
+| `manim` | reserved — manim-rendered animation | deferred |
+
+**Anti-cheating is explicitly not a requirement.** The tool is for people who actually want to learn, so encoding correct answers client-side (in the JSON or HTML) is fine.
+
+## Lesson flow rules
+
+- **Sequential reveal**: blocks appear one at a time on a single lesson page (not a chat UI); the user advances explicitly.
+- **Quiz gating**: a quiz block must be answered correctly before the next block unlocks. Wrong answer → next hint from `hints[]` → retry. After hints are exhausted (or on explicit request), a "show answer" option unlocks progress.
+- **Frequent alternation** of explanation and quiz is the core pedagogical principle. As a rule of thumb, never more than 2–3 explanation/link/video blocks in a row without a quiz.
+- **Incremental generation**: the teacher generates one lesson file at a time and uses `progress.json` to adapt the next one. There is no requirement to author a whole course at once.
+
+## Design decisions log
+
+Decisions already made with the user — do not re-litigate them:
+
+- **Python** for the server and tooling: manim is Python, and the Agent SDK has a Python package, so the whole stack stays in one language.
+- **v1 teacher = the interactive terminal Claude Code session**, not the Agent SDK. Reason: the Agent SDK requires a pay-per-token `ANTHROPIC_API_KEY`, while the terminal session runs on the existing Claude Code subscription at zero extra cost. The SDK remains the documented upgrade path.
+- **Free-text answers in the GUI are deferred.** v1 GUI quizzes are auto-evaluable only (multiple choice). The knowledge-assessment interview, which needs free text, happens in the terminal conversation before the GUI opens.
+- **Structured JSON lesson files with typed blocks**, rendered by one generic viewer — rather than the teacher generating bespoke HTML per lesson. This keeps content generation cheap and the viewer testable.
+- **Retry-with-hints gating** for wrong answers (see Lesson flow rules).
+- **Single lesson page with sequential reveal**, not a chat interface.
+- **Manim deferred** to a later phase; the block type is reserved so the schema won't churn.
+- **GUI styling is out of scope for now** — make it work first.
+
+## Current status & roadmap
+
+- **Phase 0 — this document.** Done.
+- **Phase 1 — minimal working tool**: `serve.py`, `gui/` viewer supporting the four v1 block types, and one hand-written sample subject under `subjects/` to prove the flow end to end.
+- **Phase 2 — teacher enablement**: write `docs/teacher-guide.md` (how a teacher session interviews, authors lesson JSON, launches the server, reads progress), then run the first real Claude-taught subject.
+- **Phase 3 — free-text evaluation**: integrate the Agent SDK (`claude-agent-sdk` + `ANTHROPIC_API_KEY`) to enable `quiz-free` blocks and in-GUI feedback.
+- **Phase 4 — manim blocks**: render and embed manim animations as a block type.
