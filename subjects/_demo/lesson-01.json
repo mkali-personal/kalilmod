@@ -36,8 +36,25 @@
       "hints": ["He mentions their 'really, really, really long trunks'."]
     },
     {
+      "type": "graph",
+      "title": "Graph rendering test — y = x² and y = x³",
+      "data": [
+        { "x": [-3, -2, -1, 0, 1, 2, 3], "y": [9, 4, 1, 0, 1, 4, 9], "type": "scatter", "mode": "lines", "name": "y = x²" },
+        { "x": [-3, -2, -1, 0, 1, 2, 3], "y": [-27, -8, -1, 0, 1, 8, 27], "type": "scatter", "mode": "lines", "name": "y = x³" }
+      ],
+      "layout": { "xaxis": { "title": "x" }, "yaxis": { "title": "y" } },
+      "caption": "Guided-reading check: notice which curve dips below zero for negative x — you'll be asked next."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "In the graph above, which curve takes negative values when x is negative?",
+      "options": ["y = x³", "y = x²", "Both of them", "Neither of them"],
+      "answer": 0,
+      "hints": ["A square is never negative; a cube keeps the sign of its input."]
+    },
+    {
       "type": "explanation",
-      "markdown": "Demo complete. If you saw: sequential reveal, two hints, a *Show answer* button, an embedded video, LaTeX like $E = mc^2$, and this final block — everything works. Use *⟲ Restart lesson* to run the test again."
+      "markdown": "Demo complete. If you saw: sequential reveal, two hints, a *Show answer* button, an embedded video, an **interactive graph** (try hovering and zooming), LaTeX like $E = mc^2$, and this final block — everything works. Use *⟲ Restart lesson* to run the test again."
     }
   ]
 }

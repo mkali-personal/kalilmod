@@ -31,7 +31,23 @@ Block types (see `CLAUDE.md` for the full field table and a worked example):
 - `quiz-choice` — `question`, `options[]` (2–5), `answer` (index of the correct option), `hints[]`. The GUI reveals one hint per wrong attempt; when hints run out, a "Show answer" button appears. Author 1–3 hints that progressively narrow toward the answer without stating it.
   - **Write plausible distractors.** Every wrong option must be a genuinely tempting answer that a student holding a common misconception would pick. Do **not** make wrong options obviously wrong: avoid joke answers, avoid hedge/tell words ("whichever", "somehow", "randomly"), and keep all options roughly the same length and level of detail — a single long, detailed option among short ones gives the answer away. A good distractor reflects a real mistake; if you can't imagine a student seriously choosing it, rewrite it.
   - **Vary the correct option.** The GUI shuffles option order on display, so position is not a tell for the student — but still don't lazily always put the answer first in the JSON; write the options as a real set of contenders.
-- `quiz-free` and `manim` are **not implemented yet** — do not use them.
+- `graph` — an interactive plot rendered by Plotly.js. Provide `data` and `layout` as a **Plotly.js spec, verbatim** (the same objects you'd pass to `Plotly.newPlot`), plus optional `title` and `caption`. The viewer adds theme-aware defaults (transparent background, colors, sizing), so you only need the substance — traces and axis titles. Example:
+
+  ```json
+  {
+    "type": "graph",
+    "title": "Kinetic energy vs. speed",
+    "data": [
+      { "x": [0, 1, 2, 3, 4], "y": [0, 0.5, 2, 4.5, 8], "type": "scatter", "mode": "lines", "name": "KE = ½mv²" }
+    ],
+    "layout": { "xaxis": { "title": "v (m/s)" }, "yaxis": { "title": "KE (J)" } },
+    "caption": "Notice the curve is not a straight line."
+  }
+  ```
+
+  You author this **blind** (you never see the rendered chart), so keep it to well-trodden Plotly patterns you're confident about: `scatter` (lines/markers), `bar`, `heatmap`, etc. Compute the `x`/`y` arrays yourself and put the numbers in the JSON — do not rely on any expression evaluation. Guided reading applies to graphs too: tell the student what to notice in the plot (in the `caption` or the preceding block) and quiz it next. Use `graph` for **static/plotted** figures; animations are a separate (future) `manim` block.
+- `quiz-free` is **not implemented yet** — do not use it.
+- `manim` is **not implemented yet**, and when it is, it will be for **animations only** and used **only if manim is already installed** on this machine (check with `python -c "import manim"` and confirm a render succeeds; otherwise fall back to a `graph` or explanation). Never add manim/ffmpeg to the project's requirements — it is an optional, author-time tool.
 
 Pedagogical obligations (non-negotiable):
 

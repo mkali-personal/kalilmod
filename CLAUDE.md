@@ -115,8 +115,9 @@ Block types:
 | `link` | `url`, `title`, `why` (why/what to read) | v1 |
 | `video` | `url`, `title`, `focus` (what to focus on). Some owners (esp. music labels) disable embedding — the GUI shows a "watch on YouTube" fallback link, but the teacher should prefer videos that allow embedded playback | v1 |
 | `quiz-choice` | `question`, `options[]`, `answer` (correct index), `hints[]` (shown in order on wrong attempts) | v1 |
+| `graph` | `data`, `layout` (Plotly.js spec, verbatim), optional `title`, `caption`. Rendered client-side by Plotly (CDN), theme-aware, interactive | v1 |
 | `quiz-free` | reserved — free-text/LaTeX answer evaluated by Claude | deferred to Agent SDK phase |
-| `manim` | reserved — manim-rendered animation | deferred |
+| `manim` | reserved — manim-rendered **animation** (not static graphs — use `graph` for those). Optional: used only if manim is already installed on the machine; never a hard dependency | deferred |
 
 **Anti-cheating is explicitly not a requirement.** The tool is for people who actually want to learn, so encoding correct answers client-side (in the JSON or HTML) is fine.
 
@@ -138,7 +139,8 @@ Decisions already made with the user — do not re-litigate them:
 - **Structured JSON lesson files with typed blocks**, rendered by one generic viewer — rather than the teacher generating bespoke HTML per lesson. This keeps content generation cheap and the viewer testable.
 - **Retry-with-hints gating** for wrong answers (see Lesson flow rules).
 - **Single lesson page with sequential reveal**, not a chat interface.
-- **Manim deferred** to a later phase; the block type is reserved so the schema won't churn.
+- **Graphs use Plotly.js** (declarative JSON `data`/`layout`, rendered client-side from CDN). Chosen because the graph *is* JSON — it drops into the block schema with no build step — and because the teacher LLM, which authors blind (it never sees the rendered output), writes Plotly specs very reliably and they fail gracefully. Static custom figures could later use a pre-rendered matplotlib image; interactive exploration could later add a Desmos block. See the Plotly authoring rules in `docs/teacher-guide.md`.
+- **Manim is animation-only and strictly optional.** It is an author-time tool, never a runtime dependency: the viewer only plays a pre-rendered video, which needs no packages. The teacher uses manim *only if it is already installed* (checked at author time) and falls back to a `graph` or explanation otherwise — so the base install stays Python-stdlib-only. The block type is reserved so the schema won't churn.
 - **GUI styling**: a modern, elegant baseline is now in place (CSS-only, single file, no framework — automatic light/dark mode, card layout, styled quiz options, reveal animation). Keep future styling in the same lightweight, dependency-free spirit; no build step or frontend framework.
 
 ## Current status & roadmap
@@ -146,5 +148,6 @@ Decisions already made with the user — do not re-litigate them:
 - **Phase 0 — this document.** Done.
 - **Phase 1 — minimal working tool.** Done: `serve.py`, `gui/index.html` viewer (four v1 block types, video embeds, progress status, restart), sample subjects `compton-scattering` and `_demo` (mechanism test).
 - **Phase 2 — teacher enablement.** `docs/teacher-guide.md` written; remaining: run the first real Claude-taught subject and fix whatever that surfaces.
-- **Phase 3 — free-text evaluation**: integrate the Agent SDK (`claude-agent-sdk` + `ANTHROPIC_API_KEY`) to enable `quiz-free` blocks and in-GUI feedback.
-- **Phase 4 — manim blocks**: render and embed manim animations as a block type.
+- **Phase 3 — graphs.** Done: `graph` block via Plotly.js (interactive, theme-aware, client-side).
+- **Phase 4 — free-text evaluation**: integrate the Agent SDK (`claude-agent-sdk` + `ANTHROPIC_API_KEY`) to enable `quiz-free` blocks and in-GUI feedback.
+- **Phase 5 — manim animations** (optional capability): render and embed manim animations as a block type, used only when manim is detected on the machine.

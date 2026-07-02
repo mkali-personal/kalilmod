@@ -1,4 +1,4 @@
-# Kalilmod — קל ללמוד
+# Kalilmod
 
 An interactive learning tool: Claude Code acts as your teacher, writing lessons that alternate short explanations with frequent quizzes, so you actually engage with the material instead of passively reading. See `CLAUDE.md` for the full design.
 
