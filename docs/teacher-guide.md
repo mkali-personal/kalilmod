@@ -128,7 +128,7 @@ The student triggers this by running **`/review-answer`**. The full procedure li
 - **`progress.json` is the GUI's.** It holds the student's position, quiz state, submitted free-text answers (`freeAnswers`), and feedback. **Read it; never write it.**
 - **`reviews.json` is yours.** Write your free-text verdicts and `feedbackHandled` counter here. The GUI only reads it. Shape:
   ```json
-  { "lesson-01.json": { "answers": { "3": { "verdict": "correct|partial|incorrect", "comment": "…", "ts": "…" } }, "feedbackHandled": 1 } }
+  { "lesson-01.json": { "answers": { "3": { "verdict": "correct|partial|incorrect", "comment": "…" } }, "feedbackHandled": 1 } }
   ```
 - **Lesson files** are yours to edit (for feedback-driven changes); the GUI reads them.
 

@@ -41,6 +41,7 @@
   .block {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
     padding: 1.3em 1.5em; margin: 1.1em 0; box-shadow: var(--shadow);
+    scroll-margin-top: 120px;  /* keep the just-answered block's feedback visible when scrolling to the next */
   }
   .block > :first-child { margin-top: 0; }
   .block > :last-child { margin-bottom: 0; }
@@ -155,7 +156,7 @@ function renderMath(node) {
 
 async function saveProgress() {
   progress[lessonFile] = state;
-  await fetch("/api/progress?subject=" + encodeURIComponent(subject), {
+  await fetch("/api/progress?subject=" + encodeURIComponent(subject) + "&lesson=" + encodeURIComponent(lessonFile), {
     method: "POST", body: JSON.stringify(progress) });
 }
 
@@ -311,7 +312,11 @@ function unlockNext() {
   state.currentBlock++;
   saveProgress();
   renderLesson();
-  window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
+  // Bring the newly revealed block into view, but with scroll-margin-top above it
+  // so the block just completed (e.g. its "Correct!" feedback) stays visible.
+  const target = document.querySelector(`[data-index="${state.currentBlock}"]`);
+  if (target) target.scrollIntoView({ behavior: "smooth", block: "start" });
+  else window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
 }
 
 function continueButton() {
@@ -322,6 +327,7 @@ function continueButton() {
 
 function renderBlock(block, index) {
   const div = el("div", "block " + block.type);
+  div.dataset.index = index;
   const isCurrent = index === state.currentBlock;
 
   if (block.type === "explanation") {

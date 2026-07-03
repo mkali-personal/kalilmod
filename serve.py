@@ -18,6 +18,9 @@ API:
   GET  /api/progress?subject=X             -> progress.json content (or {})  (GUI-owned)
   POST /api/progress?subject=X             -> overwrite progress.json with body
   GET  /api/reviews?subject=X              -> reviews.json content (or {})   (Claude-owned, read-only here)
+
+On every progress POST the server also writes .kalilmod-active.json (repo root) with the
+active {subject, lesson}, so /review-answer can scope to the subject in use instead of scanning all.
 """
 import argparse
 import json
@@ -84,9 +87,17 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             self._send_json(400, {"error": "body is not valid JSON"})
             return
-        path = safe_subject_path(query["subject"][0], "progress.json")
+        subj = query["subject"][0]
+        path = safe_subject_path(subj, "progress.json")
         with open(path, "w", encoding="utf-8") as f:
             json.dump(progress, f, ensure_ascii=False, indent=2)
+        # Record the active subject/lesson so /review-answer can scope to it.
+        active = {"subject": os.path.basename(subj)}
+        lesson = query.get("lesson", [None])[0]
+        if lesson:
+            active["lesson"] = os.path.basename(lesson)
+        with open(os.path.join(ROOT, ".kalilmod-active.json"), "w", encoding="utf-8") as f:
+            json.dump(active, f)
         self._send_json(200, {"ok": True})
 
     def list_subjects(self):
