@@ -11,12 +11,12 @@ For the active subject, read its `progress.json` (GUI-owned) and `reviews.json` 
 
 **Do not run any shell command** (including to get the time). A precise timestamp is not needed — pending items are detected by presence, below. If you want a `ts`, use today's date from your context; do not shell out for it (that would trigger a needless permission prompt for anyone who clones the project).
 
-**1. Pending free-text answers.** In `progress.json`, `freeAnswers` maps a block index to `{ text, ts, status: "submitted" }`. An answer is *pending* if that block index has **no entry** under this subject's `reviews.json` `answers`. For each pending answer:
+**1. Pending free-text answers.** In `progress.json`, `freeAnswers` maps a block index to `{ text, ts, status: "submitted" }`. An answer is *pending* if that block index has **no entry** under this subject's `reviews.json` `answers`, **or** the existing review's `answeredTs` differs from the answer's current `ts` (the student restarted and resubmitted — the old verdict is stale). Key on the `ts`, not mere presence, or a resubmission is silently skipped. For each pending answer:
 - Open the matching `quiz-free` block in the lesson file and read its `question` and hidden `reference`.
 - Evaluate the student's `text` fairly, focused on genuine understanding (not wording). Be specific and encouraging.
 - Write into `reviews.json` at `answers.<blockIndex>`:
-  `{ "verdict": "correct" | "partial" | "incorrect", "comment": "<specific feedback>" }`
-  Read-modify-write the file so existing entries are preserved.
+  `{ "verdict": "correct" | "partial" | "incorrect", "comment": "<specific feedback>", "answeredTs": "<the freeAnswers ts you judged>" }`
+  Read-modify-write the file so existing entries are preserved. Recording `answeredTs` lets the GUI hide a stale verdict and lets the next reconcile detect a resubmission.
 
 **2. Pending feedback.** In `progress.json`, the `feedback` array holds `{ block, text, ts }` messages. Compare its length to `reviews.json`'s `feedbackHandled` for that lesson (default 0). For each feedback beyond that count:
 - Address it by **editing the lesson file in place**, but only blocks *after* `currentBlock`. Never renumber, delete, or alter blocks with index ≤ `currentBlock` — that corrupts the student's saved state (keyed by block index). You may insert, expand, or replace upcoming blocks.
@@ -27,7 +27,7 @@ The web GUI polls `reviews.json` and the lesson file every few seconds, so your 
 `reviews.json` shape (one entry per lesson file):
 
 ```json
-{ "lesson-01.json": { "answers": { "3": { "verdict": "partial", "comment": "…" } }, "feedbackHandled": 1 } }
+{ "lesson-01.json": { "answers": { "3": { "verdict": "partial", "comment": "…", "answeredTs": "2026-07-03T17:50:54.255Z" } }, "feedbackHandled": 1 } }
 ```
 
 If nothing is pending, tell the student there's nothing to review right now.

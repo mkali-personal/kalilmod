@@ -665,14 +665,17 @@ function renderFree(div, block, index) {
 
   div.appendChild(el("div", "your-answer", "<b>Your answer:</b><br>" + escapeHtml(fa.text)));
 
-  const review = reviewFor(index);
+  let review = reviewFor(index);
+  // A review carries the ts of the answer it judged; if the student has since
+  // resubmitted, the old verdict is stale and must not be shown against the new answer.
+  if (review && review.answeredTs && review.answeredTs !== fa.ts) review = null;
   if (review) {
     const cls = review.verdict === "correct" ? "correct" : review.verdict === "incorrect" ? "incorrect" : "";
     div.appendChild(el("div", "review " + cls,
       "<b>Teacher review (" + review.verdict + "):</b> " + review.comment));
   } else if (mode === "dynamic") {
     div.appendChild(el("div", "hint",
-      "Answer submitted. In your terminal, run <code>/review-answer</code> — the review will appear here automatically."));
+      "Answer submitted — your teacher is reviewing it. The verdict will appear here automatically."));
   }
 
   if (mode === "static") renderReference(div, block);

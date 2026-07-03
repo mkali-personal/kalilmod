@@ -32,11 +32,15 @@ you need is in the server (`seq`) and in the subject's files.
 **2. Handle everything currently pending — reconcile from files, not from the event.**
 The wake event is only a "go look" nudge; the *source of truth* is always the files, so
 this step is idempotent (safe to repeat, never double-acts). In the active subject:
-  - **Free-text answers:** for each entry in `progress.json` `freeAnswers` whose block
-    index has **no** entry under `reviews.json` `answers`, evaluate it against the
-    `quiz-free` block's hidden `reference` and write
-    `answers.<blockIndex> = { "verdict": "correct"|"partial"|"incorrect", "comment": "…" }`
-    (read-modify-write so existing entries survive).
+  - **Free-text answers:** an entry in `progress.json` `freeAnswers` is **pending** if
+    its block index has **no** entry under `reviews.json` `answers`, **or** the existing
+    review's `answeredTs` differs from the answer's current `ts` (the student restarted
+    and resubmitted, so the old verdict is stale). Key on the `ts`, not mere presence —
+    otherwise a resubmission is silently skipped. For each pending answer, evaluate it
+    against the `quiz-free` block's hidden `reference` and write
+    `answers.<blockIndex> = { "verdict": "correct"|"partial"|"incorrect", "comment": "…", "answeredTs": "<the freeAnswers[i].ts you judged>" }`
+    (read-modify-write so other blocks' entries survive). Recording `answeredTs` is what
+    lets the GUI hide a stale verdict and lets the next reconcile detect a resubmission.
   - **Feedback:** if `progress.json` `feedback` has more items than `reviews.json`
     `feedbackHandled` (default 0), address each new one by **editing only blocks after
     `currentBlock`** in the lesson file (never touch blocks with index ≤ `currentBlock` —
