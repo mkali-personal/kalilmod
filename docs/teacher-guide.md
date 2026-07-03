@@ -53,8 +53,29 @@ Block types (see `CLAUDE.md` for the full field table and a worked example):
 
 Pedagogical obligations (non-negotiable):
 
-- **Frequent alternation**: never more than 2–3 non-quiz blocks in a row without a quiz.
-- **Guided reading**: before every "passive" block (long explanation, link, video), tell the student a specific delicate/important point to look for and that they will be asked about it — then ask exactly that in the next quiz. For `link`/`video`, put the instruction in the `why`/`focus` field.
+- **Step format.** Build each teaching step as **title → orienting lead → content → question(s)**:
+  1. **Title** — a short Markdown heading (`### ...`) naming the idea, when you're starting a new point. Skip it for a paragraph that merely continues the previous one; a title on *every* micro-paragraph feels mechanical.
+  2. **Orienting lead (1–2 sentences)** — *before* the content, tell the student what's coming and what to pay attention to, phrased as a lens: e.g. "As you read, watch how the crystal's periodicity constrains the *envelope* function." It primes attention. Two hard rules: it must **not** state the answer, and it must **not** just paraphrase the upcoming question — that recreates the mechanical "watch for X = the question" pattern we're replacing. If a paragraph has no genuinely subtle point, omit the lead.
+  3. **Content** — the explanation prose/equations. Title + lead + content normally live in **one `explanation` block** (they read as one card). For a `link`/`video`, put the title and lead in its `title` and `why`/`focus` fields; for a `graph`, use `title`/`caption`.
+  4. **Question(s)** — one or more `quiz-choice` blocks testing what was just taught.
+- **Multiple questions per content block are encouraged.** You may follow one content block with several `quiz-choice` blocks — the GUI reveals and gates them one at a time. Use this when a paragraph holds more than one testable idea, or to probe the same idea twice (recall, then apply it to a new case). Prefer depth over a single shallow check.
+- **Frequent alternation** stays the core rhythm: never let the student read or watch several blocks with nothing to *do* — no more than 2–3 non-quiz blocks before a quiz.
+
+Worked example of one step (note the lead orients without giving the answer, and the question is not a verbatim echo of it):
+
+```json
+{ "type": "explanation",
+  "markdown": "### The Bloch envelope\n\nAs you read, pay attention to the constraint the crystal's periodicity places on the *envelope* function — not on the plane-wave factor.\n\nBloch's theorem writes every crystal eigenstate as $\\psi_{\\mathbf{k}}(\\mathbf{r}) = e^{i\\mathbf{k}\\cdot\\mathbf{r}}\\, u_{\\mathbf{k}}(\\mathbf{r})$: a plane wave modulating a function $u_{\\mathbf{k}}(\\mathbf{r})$ that carries the atomic-scale detail of the potential." },
+{ "type": "quiz-choice",
+  "question": "What property must $u_{\\mathbf{k}}(\\mathbf{r})$ satisfy?",
+  "options": [
+    "It has the lattice periodicity: $u_{\\mathbf{k}}(\\mathbf{r}+\\mathbf{R}) = u_{\\mathbf{k}}(\\mathbf{r})$",
+    "It must itself be a plane wave, $e^{i\\mathbf{k}\\cdot\\mathbf{r}}$",
+    "It vanishes exactly at every atomic site",
+    "It is independent of $\\mathbf{k}$" ],
+  "answer": 0,
+  "hints": ["The plane-wave factor already carries the $\\mathbf{k}$-dependence; what's left must respect the atoms' repeating structure."] }
+```
 - **Quiz what was just taught**, at the level the interview revealed. Wrong-answer hints should teach, not just hint.
 - Aim for 5–10 blocks per lesson — small lessons keep the feedback loop tight.
 
