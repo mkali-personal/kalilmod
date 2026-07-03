@@ -255,22 +255,38 @@ function renderLesson() {
     $app.appendChild(node);
   }
   if (state.currentBlock >= lesson.blocks.length) {
-    const pending = [];
-    lesson.blocks.forEach((b, i) => {
-      if (b.type === "quiz-choice" && needsReview(state.quiz[i])) pending.push(i);
-    });
-    if (pending.length) {
-      $app.appendChild(renderReviewRound(pending));
-    } else {
-      const done = mode === "dynamic"
-        ? "<b>Lesson complete! 🎉</b> Return to your terminal and run <code>/teach-me</code> (same topic) to generate the next lesson."
-        : "<b>Lesson complete! 🎉</b> You've reached the end of the authored lessons.";
-      $app.appendChild(el("div", "block reveal", done));
-      // Tell a live teacher the student is out of content — once per completion.
-      if (mode === "dynamic" && !state.notifiedComplete) {
-        state.notifiedComplete = true;
+    const assessAll = lesson.blocks.length > 0 && lesson.blocks.every((b) => b.type === "assess");
+    if (assessAll) {
+      // An evaluation round is finished but the next step — more questions, or
+      // the lesson itself — isn't authored yet. Wake the teacher and wait; the
+      // poll reveals whatever it appends. Keyed on blocks.length so each new
+      // round of questions re-notifies (supports rough- then fine-grained rounds).
+      $app.appendChild(el("div", "block reveal", mode === "dynamic"
+        ? "<b>Thanks!</b> Your teacher is looking at your answers — the next step appears here in a moment, no refresh needed."
+        : "<b>Thanks!</b> (Static mode has no live teacher to build a lesson from these answers.)"));
+      if (mode === "dynamic" && state.assessmentNotifiedLen !== lesson.blocks.length) {
+        state.assessmentNotifiedLen = lesson.blocks.length;
         saveProgress();
-        notify({ kind: "lesson-complete", subject: subject, lesson: lessonFile });
+        notify({ kind: "assessment-done", subject: subject, lesson: lessonFile });
+      }
+    } else {
+      const pending = [];
+      lesson.blocks.forEach((b, i) => {
+        if (b.type === "quiz-choice" && needsReview(state.quiz[i])) pending.push(i);
+      });
+      if (pending.length) {
+        $app.appendChild(renderReviewRound(pending));
+      } else {
+        const done = mode === "dynamic"
+          ? "<b>Lesson complete! 🎉</b> Your teacher is preparing the next lesson — it'll appear here in a moment."
+          : "<b>Lesson complete! 🎉</b> You've reached the end of the authored lessons.";
+        $app.appendChild(el("div", "block reveal", done));
+        // Tell a live teacher the student is out of content — once per completion.
+        if (mode === "dynamic" && !state.notifiedComplete) {
+          state.notifiedComplete = true;
+          saveProgress();
+          notify({ kind: "lesson-complete", subject: subject, lesson: lessonFile });
+        }
       }
     }
   }
@@ -461,6 +477,8 @@ function renderBlock(block, index) {
     renderQuiz(div, block, index);
   } else if (block.type === "quiz-free") {
     renderFree(div, block, index);
+  } else if (block.type === "assess") {
+    renderAssess(div, block, index);
   } else {
     div.textContent = `[Unsupported block type: ${block.type}]`;
     if (isCurrent) div.appendChild(continueButton());
@@ -624,6 +642,60 @@ function renderReference(div, block) {
   btn.onclick = () => { ref.style.display = "block"; btn.style.display = "none"; renderMath(ref); };
   div.appendChild(btn);
   div.appendChild(ref);
+}
+
+// Diagnostic assessment question shown before the lesson: no right/wrong, no
+// hints, no grading — it just records the answer. When the student finishes the
+// current evaluation questions, the teacher reads them (via progress.json) and
+// either asks a finer round or authors the lesson. `options` present → single-
+// choice; absent → free text. Answers live in state.assessment[index].
+function renderAssess(div, block, index) {
+  state.assessment = state.assessment || {};
+  const a = state.assessment[index];
+  const isCurrent = index === state.currentBlock;
+  div.innerHTML = `<div class="qlabel">About you</div><div class="qtext">${block.question}</div>`;
+
+  // Answered and scrolled past: show it read-only.
+  if (a && !isCurrent) {
+    const shown = block.options ? block.options[a.choice] : a.text;
+    div.appendChild(el("div", "your-answer", "<b>Your answer:</b> " + escapeHtml(shown || "(skipped)")));
+    return;
+  }
+
+  const msg = el("p");
+  const advance = (record) => { state.assessment[index] = Object.assign(record, { ts: new Date().toISOString() }); saveProgress(); unlockNext(); };
+
+  if (block.options) {
+    const form = el("form", "options");
+    block.options.forEach((opt, i) => {
+      const checked = a && a.choice === i ? "checked" : "";
+      form.appendChild(el("label", "option",
+        `<input type="radio" name="assess${index}" value="${i}" ${checked}> <span>${opt}</span>`));
+    });
+    div.appendChild(form);
+    div.appendChild(msg);
+    if (isCurrent) {
+      const btn = el("button", "btn primary", "Continue →");
+      btn.onclick = () => {
+        const sel = form.querySelector("input:checked");
+        if (!sel) { msg.className = "feedback-wrong"; msg.textContent = "Pick an answer first."; return; }
+        advance({ choice: Number(sel.value) });
+      };
+      div.appendChild(btn);
+    }
+  } else {
+    const ta = el("textarea");
+    ta.rows = 3;
+    ta.placeholder = "Type your answer (leave blank if you're not sure). You can use $...$ for LaTeX.";
+    if (a && a.text) ta.value = a.text;
+    div.appendChild(ta);
+    div.appendChild(msg);
+    if (isCurrent) {
+      const btn = el("button", "btn primary", "Continue →");
+      btn.onclick = () => advance({ text: ta.value.trim() });
+      div.appendChild(btn);
+    }
+  }
 }
 
 // Free-text / LaTeX answer. In dynamic mode a live Claude session reviews it
