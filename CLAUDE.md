@@ -25,18 +25,17 @@ The original idea — an HTML GUI backed by a background Claude session — is f
 
 ```mermaid
 flowchart LR
-    A[Terminal: Claude Code<br>teacher session] -->|1. interview user,<br>assess prior knowledge| A
-    A -->|2. writes| B["subjects/&lt;topic&gt;/lesson-NN.json"]
-    A -->|3. launches| C[Python local server]
-    C --> D[Browser GUI:<br>sequential block reveal,<br>quiz gating with hints]
+    A[Terminal: Claude Code<br>teacher session] -->|1. writes evaluation<br>then lesson blocks| B["subjects/&lt;topic&gt;/lesson-NN.json"]
+    A -->|2. launches| C[Python local server]
+    C --> D[Browser GUI:<br>evaluation rounds,<br>then sequential lesson reveal]
     D -->|answers, retries| E["subjects/&lt;topic&gt;/progress.json"]
-    E -->|4. GUI wakes teacher via<br>/api/notify; Claude reviews live| A
+    E -->|3. GUI wakes teacher via<br>/api/notify; Claude authors/reviews live| A
 ```
 
 1. The user opens a Claude Code session in this repo and runs the one command — **`/teach-me <topic>`** to start a subject, or **`/teach-me`** with no topic to resume an existing one. It is a thin wrapper (in `.claude/commands/`) around `docs/teacher-guide.md`.
-2. Claude (teacher role) interviews the user **in the terminal conversation** to assess prior knowledge — free-text and choice questions.
-3. Based on the assessment, Claude writes `subjects/<topic>/lesson-NN.json` (typed content blocks), then launches the local server in **dynamic** mode, which opens the browser at the lesson page — and **stays live hands-free** (below).
-4. The GUI reveals blocks one at a time. Multiple-choice quizzes gate with hints then "show answer". When the student submits a free-text (`quiz-free`) answer, leaves feedback, or finishes the lesson, the GUI fires `POST /api/notify`; the teacher's backgrounded listener wakes, Claude writes the evaluation/edit, and the GUI (which polls the read-only `reviews.json` and lesson file) updates **without a refresh** and **without any terminal action**. The open lesson lives in the URL hash, so F5 restores position.
+2. For a new subject, Claude writes `lesson-NN.json` with a first round of **`assess`** blocks (diagnostic questions) — no terminal interview — then launches the local server in **dynamic** mode, which opens the browser, and **stays live hands-free** (below).
+3. The student answers the evaluation questions in the GUI; the wake fires and Claude reads the answers and either asks a **finer round** of `assess` questions or authors the lesson blocks (appended after the assessment), adapted to the student's level. This can be 1–3 evaluation rounds before teaching begins.
+4. The GUI reveals lesson blocks one at a time. Multiple-choice quizzes gate with hints then "show answer". When the student submits a free-text (`quiz-free`) answer, leaves feedback, or finishes the lesson, the GUI fires `POST /api/notify`; the teacher's backgrounded listener wakes, Claude writes the evaluation/edit, and the GUI (which polls the read-only `reviews.json` and lesson file) updates **without a refresh** and **without any terminal action**. The open lesson lives in the URL hash, so F5 restores position.
 5. When the student finishes a lesson, the same wake generates the next one from `progress.json` (which questions were hard, retries, free-text answers) automatically. Content is generated incrementally, indefinitely — the user runs `/teach-me` only once.
 
 **Session modes.** *Dynamic* (default; `/teach-me` launches it) means a live Claude session is present, enabling free-text review and live lesson edits. *Static* (`python serve.py --static`, for non-Claude LLMs or plain replay) disables those: free-text questions are self-checked against a hidden `reference`. The GUI reads the mode from `/api/mode`.
@@ -126,12 +125,14 @@ Block types:
 | `quiz-choice` | `question`, `options[]`, `answer` (correct index), `hints[]` (shown in order on wrong attempts) | v1 |
 | `graph` | `data`, `layout` (Plotly.js spec, verbatim), optional `title`, `caption`. Rendered client-side by Plotly (CDN), theme-aware, interactive | v1 |
 | `quiz-free` | `question` + hidden `reference`. Free-text/LaTeX answer. **Dynamic**: student submits, the live `/teach-me` loop evaluates it automatically (no API key needed). **Static**: student self-checks against `reference` | v1 |
+| `assess` | `question`, optional `options[]`. A pre-lesson **diagnostic** question — no right/wrong, no hints, no `reference`. `options` present → single-choice; absent → free text. Answers recorded in `progress.json` `assessment`; the live teacher reads them to gauge level and author the lesson. Used in *evaluation rounds* at the very start of a new subject (see Lesson flow rules) | v1 |
 | `manim` | reserved — manim-rendered **animation** (not static graphs — use `graph` for those). Optional: used only if manim is already installed on the machine; never a hard dependency | deferred |
 
 **Anti-cheating is explicitly not a requirement.** The tool is for people who actually want to learn, so encoding correct answers client-side (in the JSON or HTML) is fine.
 
 ## Lesson flow rules
 
+- **Evaluation first (new subjects)**: a new subject's `lesson-01.json` begins with one or more rounds of `assess` blocks — diagnostic questions (single-choice or free-text, no right/wrong) answered in the GUI. The student answers a round; the live teacher reads the answers and either appends a **finer round** or authors the lesson (1–3 rounds total, keyed on block count so each round wakes the teacher). Only once the lesson blocks are appended does teaching begin. Resumed/continued lessons skip evaluation.
 - **Sequential reveal**: blocks appear one at a time on a single lesson page (not a chat UI); the user advances explicitly.
 - **Quiz gating**: a quiz block must be answered correctly before the next block unlocks. Wrong answer → next hint from `hints[]` → retry. After hints are exhausted (or on explicit request), a "show answer" option unlocks progress.
 - **Review round** (automatic, GUI-side — no authoring): any multiple-choice question that was *missed* (took a retry, or the answer was revealed) is re-quizzed at the end of the lesson, without hints and with reshuffled options, until answered correctly. While the review round is active, the original occurrences of those questions hide their answer, so scrolling up to re-read the material can't spoil them. This is spaced retrieval — countering the "saw the answer, forgot it" failure.
@@ -145,7 +146,7 @@ Decisions already made with the user — do not re-litigate them:
 
 - **Python** for the server and tooling: manim is Python, and the Agent SDK has a Python package, so the whole stack stays in one language.
 - **v1 teacher = the interactive terminal Claude Code session**, not the Agent SDK. Reason: the Agent SDK requires a pay-per-token `ANTHROPIC_API_KEY`, while the terminal session runs on the existing Claude Code subscription at zero extra cost. The SDK remains the documented upgrade path.
-- **Free-text answers in the GUI are deferred.** v1 GUI quizzes are auto-evaluable only (multiple choice). The knowledge-assessment interview, which needs free text, happens in the terminal conversation before the GUI opens.
+- **Free-text and evaluation now happen in the GUI** (superseding the original "defer free text to the terminal" decision). Once the wake mechanism existed, both the free-text lesson answers (`quiz-free`) and the initial knowledge evaluation (`assess` blocks) moved into the browser: the student answers there, the live teacher reads `progress.json` and responds. The evaluation runs as **1–3 rounds of `assess` questions** at the very start of a new subject — a rough round, then optionally finer rounds shaped by the answers — before the lesson is authored. The terminal is no longer used for interviewing.
 - **Structured JSON lesson files with typed blocks**, rendered by one generic viewer — rather than the teacher generating bespoke HTML per lesson. This keeps content generation cheap and the viewer testable.
 - **Retry-with-hints gating** for wrong answers (see Lesson flow rules).
 - **Single lesson page with sequential reveal**, not a chat interface.

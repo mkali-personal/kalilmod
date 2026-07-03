@@ -15,14 +15,14 @@ An interactive learning tool: Claude Code acts as your teacher, writing lessons 
 
 ## How to learn a subject (dynamic)
 
-**Start with Claude Code, not with `serve.py`** — the teacher interviews you, writes the lesson, and launches the server itself. In a terminal in this repo, run `claude`, then use the one command:
+**Start with Claude Code, not with `serve.py`** — the teacher evaluates you, writes the lesson, and launches the server itself. In a terminal in this repo, run `claude`, then use the one command:
 
-- **`/teach-me <topic>`** — start a new subject. Example: `/teach-me the Krebs cycle`. The teacher interviews you in the terminal, writes the first lesson, opens your browser at it, and then **goes hands-free**.
+- **`/teach-me <topic>`** — start a new subject. Example: `/teach-me the Krebs cycle`. The teacher opens your browser, asks a few quick **evaluation questions** right there to gauge your level, builds your lesson from your answers, and then **goes hands-free**.
 - **`/teach-me`** (no topic) — lists the subjects you already have to **resume** one, or lets you name a new topic.
 
-That's the whole command surface. After it opens the browser, the teacher **stays live automatically**: it evaluates each free-text answer, applies any feedback you leave, and writes the next lesson when you finish — all with **no further terminal actions**. This works by arming a background listener that your browser wakes on each action; it stays on your Claude subscription (no API key) and costs ~nothing while you're just reading. Stop it any time by saying so, or by closing the server.
+That's the whole command surface. After it opens the browser, the teacher **stays live automatically**: it reads your evaluation answers (and may ask a finer round), evaluates each free-text answer, applies any feedback you leave, and writes the next lesson when you finish — all with **no further terminal actions**. This works by arming a background listener that your browser wakes on each action; it stays on your Claude subscription (no API key) and costs ~nothing while you're just reading. Stop it any time by saying so, or by closing the server.
 
-Working through a lesson: blocks reveal one at a time. Wrong multiple-choice answers reveal hints, then a "Show answer"; any question you miss is re-quizzed in a review round at the end. For a free-text question, type your answer and submit — the teacher's review appears in the page on its own, no refresh. You can also message the teacher any time via the feedback box. Progress is saved automatically; pressing **F5 keeps you on the same lesson**. If a session is ever lost, just re-run `/teach-me` — your progress and reviews live in files, so nothing is lost but the chat.
+Working through a subject: it opens with a short **evaluation** — a few questions (multiple-choice or free-text, no right/wrong) so the teacher can pitch the lesson at your level; answer them and the lesson appears. Then blocks reveal one at a time. Wrong multiple-choice answers reveal hints, then a "Show answer"; any question you miss is re-quizzed in a review round at the end. For a free-text question, type your answer and submit — the teacher's review appears in the page on its own, no refresh. You can also message the teacher any time via the feedback box. Progress is saved automatically; pressing **F5 keeps you on the same lesson**. If a session is ever lost, just re-run `/teach-me` — your progress and reviews live in files, so nothing is lost but the chat.
 
 ## Static session (another LLM, or just replaying lessons)
 

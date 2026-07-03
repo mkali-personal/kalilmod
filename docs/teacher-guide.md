@@ -9,10 +9,11 @@ There is **one** student-facing command (defined in `.claude/commands/`): **`/te
 ## The teaching loop
 
 1. **Choose the subject.** If the user wants to continue, list the folders under `subjects/` and read the subject's `progress.json` and latest `lesson-NN.json`. If it's a new subject, create `subjects/<kebab-case-topic>/`.
-2. **Interview the user in the terminal** (new subjects, or when returning after a long time). **Ask at least 6 questions** — a single question is never enough to gauge someone's level. Mix free-text and multiple choice, and probe both breadth and depth: what they already know, what vocabulary they have, where the edge of their knowledge is, and what they want to reach. Start broad, then follow up on their answers to find the boundary. Example: for "Compton scattering", ask whether they know what a photon is, whether they've seen conservation-of-momentum problems, whether they know special relativity basics, whether they can state the photoelectric effect, what they expect happens when light hits an electron, and what they ultimately want to understand.
-3. **Author one lesson file**: `subjects/<topic>/lesson-NN.json` (two-digit numbering, next free number). Rules below.
-4. **Launch the tool**: run `python serve.py` in the background (it opens the browser automatically; use `--port` if 8000 is taken). Tell the user to pick their lesson in the browser and to return to the terminal when they finish or want more.
-5. **When the user returns**, read `subjects/<topic>/progress.json` and adapt (see "Reading progress"). Author the next lesson. Repeat — content is generated incrementally, one lesson at a time, indefinitely. Never author a whole course up front.
+2. **Evaluate in the browser, not the terminal** (new subjects). Author `lesson-01.json` starting with a first round of **`assess`** blocks — a handful (≈4–6) of quick diagnostic questions (mix single-choice and free-text; no right/wrong, no `reference`) that gauge the student's level roughly. **Do not interview in the terminal.** You'll read the answers from `progress.json` once the student submits them (see the live-loop in `.claude/commands/teach-me.md`). Probe breadth and depth: what they know, their vocabulary, the edge of their knowledge, and what they want to reach. Example for "Compton scattering": do they know what a photon is, have they seen conservation-of-momentum problems, do they know special-relativity basics, what do they expect when light hits an electron, and what do they want to understand.
+3. **Then evaluate finer, or teach.** When the student finishes a round (the live loop wakes you), decide: **append another round** of `assess` blocks — more targeted questions shaped by their answers — or **author the lesson**. Keep it to **1–3 rounds** total, then teach.
+4. **Author the lesson blocks**: append the real content to `lesson-NN.json` (two-digit numbering) after the assessment, adapted to what the evaluation revealed. Rules below.
+5. **Launch the tool**: run `python serve.py` in the background (it opens the browser automatically; use `--port` if 8000 is taken), then run the hands-free loop (it stays live and reacts to the browser; no terminal round-trips).
+6. **When the student finishes a lesson** (a `lesson-complete` wake), read `progress.json` and adapt (see "Reading progress"). Author the next lesson — no re-evaluation; adapt silently from progress. Repeat — content is generated incrementally, one lesson at a time, indefinitely. Never author a whole course up front.
 
 ## Authoring rules
 
@@ -56,6 +57,15 @@ Block types (see `CLAUDE.md` for the full field table and a worked example):
   { "type": "quiz-free",
     "question": "In one or two sentences, why does $\\Delta\\lambda$ depend on the scattering angle but not on the photon's initial wavelength?",
     "reference": "Because the shift comes from photon–electron collision kinematics: conserving energy and momentum gives $\\Delta\\lambda = \\frac{h}{m_e c}(1-\\cos\\theta)$, whose right-hand side contains only constants and $\\theta$." }
+  ```
+- `assess` — a **pre-lesson diagnostic** question (used only in the evaluation rounds at the start of a new subject, per "The teaching loop" above). Fields: `question` and optional `options[]`. With `options`, it's single-choice; without, it's free text. There is **no right/wrong, no hints, no `reference`** — it just records the student's answer in `progress.json` `assessment` for you to read. Keep them short and level-probing. Examples:
+
+  ```json
+  { "type": "assess", "question": "Have you worked with conservation of momentum in collisions?",
+    "options": ["Yes, comfortably", "A little", "Not really"] }
+  ```
+  ```json
+  { "type": "assess", "question": "In your own words, what is a photon? (Leave blank if unsure.)" }
   ```
 - `manim` is **not implemented yet**, and when it is, it will be for **animations only** and used **only if manim is already installed** on this machine (check with `python -c "import manim"` and confirm a render succeeds; otherwise fall back to a `graph` or explanation). Never add manim/ffmpeg to the project's requirements — it is an optional, author-time tool.
 
