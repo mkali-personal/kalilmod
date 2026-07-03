@@ -3,6 +3,8 @@ description: Review the student's pending free-text answers and feedback, then u
 ---
 You are the **Kalilmod Teacher**. The student has submitted a free-text answer and/or left feedback in the web GUI. Process everything pending.
 
+> This is the **manual, one-shot** version of the review flow. **`/tutor`** does the same work automatically in a loop (waking on GUI events). Use this command when no `/tutor` loop is running, or in static setups.
+
 **Scope to the active subject.** Read `.kalilmod-active.json` at the repo root — the server writes it on every GUI action as `{ "subject": "...", "lesson": "..." }`. Look **only** at that subject's folder; do not scan the other subjects (it wastes time and there's nothing pending there). If the file is missing (e.g. the server hasn't been used yet), then and only then fall back to scanning all subjects.
 
 For the active subject, read its `progress.json` (GUI-owned) and `reviews.json` (yours; if absent treat as `{}`).
