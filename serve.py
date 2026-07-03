@@ -18,6 +18,12 @@ API:
   GET  /api/progress?subject=X             -> progress.json content (or {})  (GUI-owned)
   POST /api/progress?subject=X             -> overwrite progress.json with body
   GET  /api/reviews?subject=X              -> reviews.json content (or {})   (Claude-owned, read-only here)
+  GET  /api/wait?since=N&timeout=S         -> long-poll: blocks until an event past N, then returns
+  POST /api/notify                         -> GUI fires an event to wake the live teacher session
+
+The wait/notify pair is the "wake the teacher" mechanism: the GUI fires /api/notify,
+a backgrounded `curl /api/wait` in the Claude session unblocks and exits, and the exit
+re-invokes Claude so it can act -- no terminal typing, no API key.
 
 On every progress POST the server also writes .kalilmod-active.json (repo root) with the
 active {subject, lesson}, so /review-answer can scope to the subject in use instead of scanning all.
@@ -26,6 +32,7 @@ import argparse
 import json
 import os
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
@@ -38,6 +45,17 @@ MIME = {".html": "text/html", ".js": "text/javascript", ".css": "text/css",
         ".json": "application/json", ".png": "image/png", ".svg": "image/svg+xml"}
 
 MODE = "dynamic"  # set from --static at startup
+
+# --- Event bus for the "wake the teacher" mechanism -------------------------
+# The GUI fires an event (POST /api/notify) whenever it needs the live Claude
+# session to act (a free-text answer submitted, feedback left, content run out).
+# The teacher session arms a background long-poll (GET /api/wait) that blocks
+# until an event arrives, then exits -- and a backgrounded command exiting is
+# what re-invokes ("excites") the Claude Code session. State is a monotonically
+# growing list, so a *fresh* session with no memory can re-arm by first asking
+# for the current sequence number; nothing about the loop is held in context.
+_events = []                       # list of event dicts, append-only
+_events_cv = threading.Condition() # guards _events and signals waiters
 
 
 def safe_subject_path(subject, filename):
@@ -71,12 +89,17 @@ class Handler(BaseHTTPRequestHandler):
             self.send_subject_file(query, "progress.json", default={})
         elif url.path == "/api/reviews":
             self.send_subject_file(query, "reviews.json", default={})
+        elif url.path == "/api/wait":
+            self.wait_for_event(query)
         else:
             self.send_static(url.path)
 
     def do_POST(self):
         url = urlparse(self.path)
         query = parse_qs(url.query)
+        if url.path == "/api/notify":
+            self.notify_event()
+            return
         if url.path != "/api/progress" or "subject" not in query:
             self._send_json(404, {"error": "unknown endpoint"})
             return
@@ -126,6 +149,45 @@ class Handler(BaseHTTPRequestHandler):
             return
         with open(path, "rb") as f:
             self._send_bytes(200, f.read(), "application/json")
+
+    def wait_for_event(self, query):
+        """Long-poll: block until an event past `since` exists, then return and
+        let the caller (a backgrounded curl) exit. Returns on timeout too, so an
+        idle listener re-arms harmlessly instead of hanging forever."""
+        try:
+            since = int(query.get("since", ["0"])[0])
+            timeout = float(query.get("timeout", ["300"])[0])
+        except ValueError:
+            self._send_json(400, {"error": "since/timeout must be numbers"})
+            return
+        deadline = time.monotonic() + timeout
+        with _events_cv:
+            while len(_events) <= since:
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    self._send_json(200, {"event": False, "seq": len(_events)})
+                    return
+                _events_cv.wait(remaining)
+            self._send_json(200, {"event": True, "seq": len(_events),
+                                  "events": _events[since:]})
+
+    def notify_event(self):
+        """The GUI fires this to wake the teacher. Body is an optional event
+        descriptor (e.g. {"kind": "free-answer", "subject": "...", "block": 3})."""
+        length = int(self.headers.get("Content-Length", 0))
+        event = {}
+        if length:
+            try:
+                event = json.loads(self.rfile.read(length))
+            except ValueError:
+                self._send_json(400, {"error": "body is not valid JSON"})
+                return
+        event.setdefault("ts", time.time())
+        with _events_cv:
+            _events.append(event)
+            seq = len(_events)
+            _events_cv.notify_all()
+        self._send_json(200, {"ok": True, "seq": seq})
 
     def send_static(self, path):
         if path == "/":
