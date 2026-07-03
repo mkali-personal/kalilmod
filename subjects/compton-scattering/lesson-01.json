@@ -5,7 +5,7 @@
   "blocks": [
     {
       "type": "explanation",
-      "markdown": "In **Compton scattering**, a photon scatters off a charged particle (usually an electron) and transfers part of its energy to it. The photon leaves with a longer wavelength. The wavelength shift depends only on the scattering angle:\n\n$$\\Delta\\lambda = \\frac{h}{m_e c}(1 - \\cos\\theta)$$\n\nThe constant $\\frac{h}{m_e c} \\approx 2.43\\,\\mathrm{pm}$ is called the *Compton wavelength* of the electron."
+      "markdown": "### What Compton scattering is\n\nAs you read, note **which two objects collide** and **what happens to the photon's energy** — the next question checks both.\n\nIn **Compton scattering**, an X-ray or gamma-ray photon collides with a nearly-free charged particle — in practice an electron — and hands over part of its energy. Because the photon loses energy, it emerges with a *longer* wavelength. This was Arthur Compton's 1923 evidence that light carries particle-like momentum, not just wave energy."
     },
     {
       "type": "quiz-choice",
@@ -23,29 +23,96 @@
       ]
     },
     {
-      "type": "link",
-      "url": "https://en.wikipedia.org/wiki/Compton_scattering",
-      "title": "Wikipedia: Compton scattering",
-      "why": "Read the introduction and the 'Description' section for the historical context of Compton's 1923 experiment."
+      "type": "explanation",
+      "markdown": "### The wavelength shift\n\nWatch what the shift $\\Delta\\lambda$ depends on — and, just as importantly, what it does *not* depend on.\n\nThe change in wavelength depends only on the scattering angle $\\theta$:\n\n$$\\Delta\\lambda = \\frac{h}{m_e c}\\,(1 - \\cos\\theta)$$\n\nThe constant $\\frac{h}{m_e c} \\approx 2.43\\,\\mathrm{pm}$ is the *Compton wavelength* of the electron — the natural length scale of the effect. Notice the photon's initial wavelength does not appear on the right-hand side."
     },
     {
       "type": "quiz-choice",
-      "question": "According to the formula above, when is the wavelength shift Δλ the largest?",
+      "question": "According to the formula, when is the wavelength shift $\\Delta\\lambda$ the largest?",
       "options": [
-        "When the photon scatters backwards (θ = 180°)",
-        "When the photon passes straight through (θ = 0°)",
-        "When the photon scatters at θ = 90°",
+        "When the photon scatters straight back, $\\theta = 180^\\circ$",
+        "When the photon passes straight through, $\\theta = 0^\\circ$",
+        "When the photon scatters sideways, $\\theta = 90^\\circ$",
         "The shift does not depend on the angle"
       ],
       "answer": 0,
       "hints": [
-        "Look at the (1 − cos θ) factor: for which angle is it maximal?",
-        "cos 180° = −1, so the factor becomes 2 — its largest possible value."
+        "Look at the $(1 - \\cos\\theta)$ factor: for which angle is it maximal?",
+        "$\\cos 180^\\circ = -1$, so the factor becomes $2$ — its largest possible value."
+      ]
+    },
+    {
+      "type": "quiz-choice",
+      "question": "A photon scatters sideways at $\\theta = 90^\\circ$ (where $\\cos 90^\\circ = 0$). By how much does its wavelength change?",
+      "options": [
+        "By $2.43\\,\\mathrm{pm}$ — exactly one Compton wavelength",
+        "It does not change at all",
+        "By $4.86\\,\\mathrm{pm}$ — twice the Compton wavelength",
+        "It depends on the photon's initial wavelength"
+      ],
+      "answer": 0,
+      "hints": [
+        "Substitute $\\cos 90^\\circ = 0$, so $(1 - \\cos\\theta) = 1$.",
+        "Then $\\Delta\\lambda = \\frac{h}{m_e c}\\times 1$, i.e. one Compton wavelength."
+      ]
+    },
+    {
+      "type": "graph",
+      "title": "Wavelength shift vs. scattering angle",
+      "data": [
+        {
+          "x": [0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165, 180],
+          "y": [0, 0.034, 0.134, 0.293, 0.5, 0.741, 1.0, 1.259, 1.5, 1.707, 1.866, 1.966, 2.0],
+          "type": "scatter",
+          "mode": "lines",
+          "name": "Δλ / λ_C"
+        }
+      ],
+      "layout": {
+        "xaxis": { "title": "scattering angle θ (degrees)" },
+        "yaxis": { "title": "Δλ in units of Compton wavelength" }
+      },
+      "caption": "This is $(1 - \\cos\\theta)$ plotted over the full range of angles. As you look at it, pay attention to how the shift behaves for *small* angles near $0^\\circ$ — the next question asks about that regime."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "From the graph, for small scattering angles ($\\theta$ near $0^\\circ$), the wavelength shift is:",
+      "options": [
+        "Very small — close to zero",
+        "At its maximum value",
+        "Negative",
+        "Independent of the angle"
+      ],
+      "answer": 0,
+      "hints": [
+        "Read the curve's height where $\\theta$ is near the left edge.",
+        "At $\\theta = 0^\\circ$, $(1 - \\cos\\theta) = 0$, so almost no energy is transferred in near-forward scattering."
+      ]
+    },
+    {
+      "type": "link",
+      "url": "https://en.wikipedia.org/wiki/Compton_scattering",
+      "title": "Wikipedia: Compton scattering",
+      "why": "Skim the introduction and the 'Description' section. As you read, look for **why classical wave theory could not explain Compton's result** — that conceptual point is the payoff, and the next question asks about it."
+    },
+    {
+      "type": "quiz-choice",
+      "question": "Why was Compton's measured wavelength shift so important historically?",
+      "options": [
+        "Classical wave theory predicts no wavelength change on scattering, so the shift showed light must carry particle-like momentum",
+        "It proved that electrons behave as waves",
+        "It showed that energy is not conserved in scattering",
+        "It demonstrated that photons have a large rest mass"
+      ],
+      "answer": 0,
+      "hints": [
+        "In the classical picture, a charge shaken by an EM wave re-radiates at the *same* frequency — so no shift.",
+        "A shift that depends on angle is exactly what you get from a particle–particle collision conserving energy and momentum."
       ]
     },
     {
       "type": "explanation",
-      "markdown": "Well done! You now know the basic kinematics of Compton scattering. In the next lesson we would derive the formula from conservation of **energy** and **momentum**, treating the photon as a particle with $E = h\\nu$ and $p = h/\\lambda$."
+      "markdown": "### Recap\n\nYou now have the kinematics: Compton scattering is a photon–electron collision, and the wavelength shift $\\Delta\\lambda = \\frac{h}{m_e c}(1 - \\cos\\theta)$ depends only on the angle — largest for back-scattering, zero for forward-scattering. In the next lesson we'll **derive** this formula from conservation of energy and momentum, treating the photon as a particle with $E = h\\nu$ and $p = h/\\lambda$."
     }
   ]
 }
