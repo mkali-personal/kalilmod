@@ -30,29 +30,29 @@ flowchart LR
     A -->|3. launches| C[Python local server]
     C --> D[Browser GUI:<br>sequential block reveal,<br>quiz gating with hints]
     D -->|answers, retries| E["subjects/&lt;topic&gt;/progress.json"]
-    E -->|4. user returns to terminal;<br>Claude reads progress| A
+    E -->|4. GUI wakes teacher via<br>/api/notify; Claude reviews live| A
 ```
 
-1. The user opens a Claude Code session in this repo and runs **`/teach-me <topic>`** (or `/open-existing-courses` to resume). These slash commands (in `.claude/commands/`) are thin wrappers around `docs/teacher-guide.md`.
+1. The user opens a Claude Code session in this repo and runs the one command — **`/teach-me <topic>`** to start a subject, or **`/teach-me`** with no topic to resume an existing one. It is a thin wrapper (in `.claude/commands/`) around `docs/teacher-guide.md`.
 2. Claude (teacher role) interviews the user **in the terminal conversation** to assess prior knowledge — free-text and choice questions.
-3. Based on the assessment, Claude writes `subjects/<topic>/lesson-NN.json` (typed content blocks), then launches the local server in **dynamic** mode, which opens the browser at the lesson page.
-4. The GUI reveals blocks one at a time. Multiple-choice quizzes gate with hints then "show answer". Free-text (`quiz-free`) answers and feedback are saved to `progress.json`; the user runs **`/review-answer`** in the terminal, Claude writes the evaluation/edit, and the GUI (which polls the read-only `reviews.json` and lesson file) updates **without a refresh**. The open lesson lives in the URL hash, so F5 restores position.
-5. When content runs out or the user wants more, they run `/teach-me` again. Claude reads `progress.json` (which questions were hard, retries, free-text answers) and generates the next lesson. Content is generated incrementally, indefinitely.
+3. Based on the assessment, Claude writes `subjects/<topic>/lesson-NN.json` (typed content blocks), then launches the local server in **dynamic** mode, which opens the browser at the lesson page — and **stays live hands-free** (below).
+4. The GUI reveals blocks one at a time. Multiple-choice quizzes gate with hints then "show answer". When the student submits a free-text (`quiz-free`) answer, leaves feedback, or finishes the lesson, the GUI fires `POST /api/notify`; the teacher's backgrounded listener wakes, Claude writes the evaluation/edit, and the GUI (which polls the read-only `reviews.json` and lesson file) updates **without a refresh** and **without any terminal action**. The open lesson lives in the URL hash, so F5 restores position.
+5. When the student finishes a lesson, the same wake generates the next one from `progress.json` (which questions were hard, retries, free-text answers) automatically. Content is generated incrementally, indefinitely — the user runs `/teach-me` only once.
 
-**Session modes.** *Dynamic* (default; the slash commands launch it) means a live Claude session is present, enabling free-text review and live lesson edits. *Static* (`python serve.py --static`, for non-Claude LLMs or plain replay) disables those: free-text questions are self-checked against a hidden `reference`. The GUI reads the mode from `/api/mode`.
+**Session modes.** *Dynamic* (default; `/teach-me` launches it) means a live Claude session is present, enabling free-text review and live lesson edits. *Static* (`python serve.py --static`, for non-Claude LLMs or plain replay) disables those: free-text questions are self-checked against a hidden `reference`. The GUI reads the mode from `/api/mode`.
 
 **File ownership (no write races).** `progress.json` is written only by the GUI (position, quiz state, free-text answers, feedback). `reviews.json` is written only by Claude (free-text verdicts, `feedbackHandled` counter) and served read-only. Lesson files are written by Claude, read by the GUI. Both `progress.json` and `reviews.json` are git-ignored per-user state; lessons are tracked.
 
-### Removing the terminal round-trip — the `/tutor` loop (done, on subscription)
+### The hands-free loop (built into `/teach-me`, on subscription)
 
-Free-text evaluation works **without an API key** — the live Claude Code session evaluates via `/review-answer`. The friction was that this was a *manual* terminal round-trip. **`/tutor` removes it while staying on the Claude subscription.** The server has a long-poll `GET /api/wait`; the GUI fires `POST /api/notify` on every action (free-text answer, feedback, lesson finished); the teacher session arms a backgrounded `curl /api/wait` and its **exit re-invokes the session** (the Claude Code harness re-invokes on a backgrounded command exiting), which handles the event and re-arms. Event-driven, zero tokens while idle, no API key. Loop state lives only in the server's monotonic `seq` and the subject files, so a **fresh session resumes** by re-running `/tutor` — only the chat is lost, never progress. The event bus and wiring are in `serve.py`; the loop is `.claude/commands/tutor.md`.
+Free-text evaluation works **without an API key** — the live Claude Code session evaluates it. There is no manual terminal round-trip: **`/teach-me` stays live and reacts to the browser itself**, on the Claude subscription. The server has a long-poll `GET /api/wait`; the GUI fires `POST /api/notify` on every action (free-text answer, feedback, lesson finished); the teacher session arms a backgrounded `curl /api/wait` and its **exit re-invokes the session** (the Claude Code harness re-invokes on a backgrounded command exiting), which handles the event and re-arms (idle heartbeat ~30 min via the `timeout`). Event-driven, ≈zero tokens while idle, no API key. Loop state lives only in the server's monotonic `seq` and the subject files, so a **fresh session resumes** by re-running `/teach-me` — only the chat is lost, never progress. The event bus and wiring are in `serve.py`; the loop protocol is in `.claude/commands/teach-me.md`.
 
 ### Further upgrade path (Agent SDK, later phase)
 
-`/tutor` gives the single-window experience but still needs an **open interactive session** kept alive. A background Agent SDK session (`claude-agent-sdk` + `ANTHROPIC_API_KEY`, pay-per-token) would add what the subscription loop can't:
+The `/teach-me` loop gives the single-window experience but still needs an **open interactive session** kept alive. A background Agent SDK session (`claude-agent-sdk` + `ANTHROPIC_API_KEY`, pay-per-token) would add what the subscription loop can't:
 
 - A true **always-on/background** teacher — no interactive terminal to keep open.
-- Resuming a teaching session days later via the SDK's session-resume support, with conversational memory intact (the `/tutor` loop rebuilds context from files instead).
+- Resuming a teaching session days later via the SDK's session-resume support, with conversational memory intact (the subscription loop rebuilds context from files instead).
 
 Nothing in the lesson-file format or server needs to change for this upgrade; only the transport of "who generates content and evaluates free text" changes (the file-ownership split and the wait/notify bus already anticipate it).
 
@@ -61,7 +61,7 @@ Nothing in the lesson-file format or server needs to change for this upgrade; on
 ```
 serve.py                     # local server: serves the GUI + JSON API; --static flag; /api/mode
 gui/                         # static HTML/JS lesson viewer (one generic viewer for all subjects)
-.claude/commands/            # slash-command skills: teach-me, open-existing-courses, review-answer
+.claude/commands/            # slash-command skill: teach-me (single entry point; interviews, authors, launches, and runs the live loop)
 subjects/<topic>/            # one folder per subject
     lesson-01.json           # lesson files, numbered sequentially (tracked in git)
     lesson-02.json
@@ -125,7 +125,7 @@ Block types:
 | `video` | `url`, `title`, `focus` (what to focus on). Some owners (esp. music labels) disable embedding — the GUI shows a "watch on YouTube" fallback link, but the teacher should prefer videos that allow embedded playback | v1 |
 | `quiz-choice` | `question`, `options[]`, `answer` (correct index), `hints[]` (shown in order on wrong attempts) | v1 |
 | `graph` | `data`, `layout` (Plotly.js spec, verbatim), optional `title`, `caption`. Rendered client-side by Plotly (CDN), theme-aware, interactive | v1 |
-| `quiz-free` | `question` + hidden `reference`. Free-text/LaTeX answer. **Dynamic**: student submits, live Claude session evaluates via `/review-answer` (no API key needed). **Static**: student self-checks against `reference` | v1 |
+| `quiz-free` | `question` + hidden `reference`. Free-text/LaTeX answer. **Dynamic**: student submits, the live `/teach-me` loop evaluates it automatically (no API key needed). **Static**: student self-checks against `reference` | v1 |
 | `manim` | reserved — manim-rendered **animation** (not static graphs — use `graph` for those). Optional: used only if manim is already installed on the machine; never a hard dependency | deferred |
 
 **Anti-cheating is explicitly not a requirement.** The tool is for people who actually want to learn, so encoding correct answers client-side (in the JSON or HTML) is fine.
@@ -152,15 +152,15 @@ Decisions already made with the user — do not re-litigate them:
 - **Graphs use Plotly.js** (declarative JSON `data`/`layout`, rendered client-side from CDN). Chosen because the graph *is* JSON — it drops into the block schema with no build step — and because the teacher LLM, which authors blind (it never sees the rendered output), writes Plotly specs very reliably and they fail gracefully. Static custom figures could later use a pre-rendered matplotlib image; interactive exploration could later add a Desmos block. See the Plotly authoring rules in `docs/teacher-guide.md`.
 - **Manim is animation-only and strictly optional.** It is an author-time tool, never a runtime dependency: the viewer only plays a pre-rendered video, which needs no packages. The teacher uses manim *only if it is already installed* (checked at author time) and falls back to a `graph` or explanation otherwise — so the base install stays Python-stdlib-only. The block type is reserved so the schema won't churn.
 - **GUI styling**: a modern, elegant baseline is now in place (CSS-only, single file, no framework — automatic light/dark mode, card layout, styled quiz options, reveal animation). Keep future styling in the same lightweight, dependency-free spirit; no build step or frontend framework.
-- **Interaction is skill-driven** (`/teach-me`, `/open-existing-courses`, `/tutor`, `/review-answer`) rather than free-text prompts, so the student never has to phrase instructions. **Free-text review uses the live session, not an API key** — the deliberate choice that keeps v1 zero-cost. **`/tutor` is the hands-free path**: an event bus (`/api/wait` long-poll + `/api/notify`) plus the harness re-invoking the session when a backgrounded `curl` exits lets the GUI wake the teacher directly — removing the manual `/review-answer` round-trip while staying on the subscription. `/review-answer` remains the manual one-shot (and the static-mode path). **Dynamic vs. static** exists so non-Claude LLMs can still generate and replay lessons (static self-checks free-text against a `reference`). **File ownership is split** (GUI writes `progress.json`; Claude writes `reviews.json` + lessons) specifically to avoid two writers racing, and the GUI **polls** the Claude-owned files so updates appear without a refresh; **F5 is safe** because the open lesson is in the URL hash. **Free-text reviews carry `answeredTs`** (the judged answer's timestamp) so a restart-and-resubmit is detected rather than skipped, and stale verdicts are hidden.
+- **Interaction is single-command** (`/teach-me` — `<topic>` to start, no-arg to resume) rather than free-text prompts, so the student never has to phrase instructions and never juggles multiple commands. **Free-text review uses the live session, not an API key** — the deliberate choice that keeps v1 zero-cost. **`/teach-me` stays hands-free**: after launching it runs a live loop — an event bus (`/api/wait` long-poll + `/api/notify`) plus the harness re-invoking the session when a backgrounded `curl` exits lets the GUI wake the teacher directly, so free-text evaluation, feedback, and next-lesson authoring all happen with no further terminal action, on the subscription. (Earlier iterations split this across `/tutor` and `/review-answer`; those were folded into `/teach-me` once the loop was proven. The file-based reconcile that the loop performs is also the manual fallback if the loop isn't running.) **Dynamic vs. static** exists so non-Claude LLMs can still generate and replay lessons (static self-checks free-text against a `reference`). **File ownership is split** (GUI writes `progress.json`; Claude writes `reviews.json` + lessons) specifically to avoid two writers racing, and the GUI **polls** the Claude-owned files so updates appear without a refresh; **F5 is safe** because the open lesson is in the URL hash. **Free-text reviews carry `answeredTs`** (the judged answer's timestamp) so a restart-and-resubmit is detected rather than skipped, and stale verdicts are hidden.
 
 ## Current status & roadmap
 
 - **Phase 0 — this document.** Done.
 - **Phase 1 — minimal working tool.** Done: `serve.py`, `gui/index.html` viewer (four v1 block types, video embeds, progress status, restart), sample subjects `compton-scattering` and `_demo` (mechanism test).
-- **Phase 2 — teacher enablement.** Done: `docs/teacher-guide.md` plus slash-command skills (`/teach-me`, `/open-existing-courses`, `/review-answer`).
+- **Phase 2 — teacher enablement.** Done: `docs/teacher-guide.md` plus the `/teach-me` slash-command skill.
 - **Phase 3 — graphs.** Done: `graph` block via Plotly.js (interactive, theme-aware, client-side).
-- **Phase 4 — free-text + sessions.** Done: `quiz-free` blocks evaluated live by the Claude session via `/review-answer` (no API key); dynamic/static modes; GUI live-polling (reviews and lesson edits appear without refresh); F5 restores position.
-- **Phase 4.5 — hands-free loop.** Done: `/tutor` removes the manual `/review-answer` round-trip on the subscription, via the `/api/wait` (long-poll) + `/api/notify` event bus and the harness's re-invoke-on-background-exit (see "Removing the terminal round-trip"). Free-text reconcile keys on the answer's `ts` (`answeredTs`) so resubmissions aren't skipped.
+- **Phase 4 — free-text + sessions.** Done: `quiz-free` blocks evaluated live by the Claude session (no API key); dynamic/static modes; GUI live-polling (reviews and lesson edits appear without refresh); F5 restores position.
+- **Phase 4.5 — hands-free loop.** Done: `/teach-me` stays live and reacts to the browser itself (no manual round-trip), via the `/api/wait` (long-poll) + `/api/notify` event bus and the harness's re-invoke-on-background-exit (see "The hands-free loop"). Free-text reconcile keys on the answer's `ts` (`answeredTs`) so resubmissions aren't skipped. The single command absorbed the earlier `/tutor` and `/review-answer`.
 - **Phase 5 — manim animations** (optional capability): render and embed manim animations as a block type, used only when manim is detected on the machine.
 - **Later — Agent SDK** (`claude-agent-sdk` + `ANTHROPIC_API_KEY`): a true always-on/background teacher with no interactive session kept open (see Further upgrade path).

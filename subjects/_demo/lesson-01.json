@@ -54,7 +54,7 @@
     },
     {
       "type": "quiz-free",
-      "question": "Free-response test: in one sentence, what does Compton scattering demonstrate about the nature of light? (In dynamic mode, submit then run /review-answer. In static mode, reveal the reference and self-check.)",
+      "question": "Free-response test: in one sentence, what does Compton scattering demonstrate about the nature of light? (In dynamic mode, just submit — the teacher reviews it automatically. In static mode, reveal the reference and self-check.)",
       "reference": "That light behaves like particles (photons) carrying momentum — a photon–electron collision shifts the photon's wavelength, which classical wave theory cannot explain."
     },
     {

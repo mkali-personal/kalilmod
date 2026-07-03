@@ -10,19 +10,19 @@ An interactive learning tool: Claude Code acts as your teacher, writing lessons 
 
 ## Dynamic vs. static sessions
 
-- **Dynamic** (Claude Code): the live session can review your free-text answers and adjust lessons on the fly. This is the full experience. Started by the slash commands below, which launch the server for you.
+- **Dynamic** (Claude Code): the live session can review your free-text answers and adjust lessons on the fly. This is the full experience. Started by the `/teach-me` command below, which launches the server for you.
 - **Static** (any other LLM, or just replaying lessons): you run the server yourself with `python serve.py --static`. Multiple-choice and graphs work fully; free-text questions are self-checked against a reference answer instead of being reviewed live.
 
 ## How to learn a subject (dynamic)
 
-**Start with Claude Code, not with `serve.py`** — the teacher interviews you, writes the lesson, and launches the server itself. In a terminal in this repo, run `claude`, then use these slash commands:
+**Start with Claude Code, not with `serve.py`** — the teacher interviews you, writes the lesson, and launches the server itself. In a terminal in this repo, run `claude`, then use the one command:
 
-- **`/teach-me <topic>`** — start a new subject or continue an existing one. Example: `/teach-me the Krebs cycle`. The teacher interviews you in the terminal, writes the lesson, and opens your browser at it.
-- **`/open-existing-courses`** — list the subjects you already have and open the tool to resume one (no new content).
-- **`/tutor`** — go **hands-free** (recommended). Run it once and the teacher reacts to the browser automatically: it evaluates each free-text answer, applies your feedback, and writes the next lesson when you finish — all with **no further terminal actions**. It works by arming a background listener that the browser wakes on each action; it stays on your Claude subscription (no API key). Stop it any time by saying so, or by closing the server.
-- **`/review-answer`** — the **manual** alternative to `/tutor`: run it after you submit a free-text answer or leave feedback and the teacher processes what's pending, once. Use it if you'd rather not keep a live loop running.
+- **`/teach-me <topic>`** — start a new subject. Example: `/teach-me the Krebs cycle`. The teacher interviews you in the terminal, writes the first lesson, opens your browser at it, and then **goes hands-free**.
+- **`/teach-me`** (no topic) — lists the subjects you already have to **resume** one, or lets you name a new topic.
 
-Working through a lesson: blocks reveal one at a time. Wrong multiple-choice answers reveal hints, then a "Show answer"; any question you miss is re-quizzed in a review round at the end. For a free-text question, type your answer and submit — with `/tutor` running the review just appears in the page on its own (otherwise run `/review-answer`). You can also message the teacher any time via the feedback box. Progress is saved automatically; pressing **F5 keeps you on the same lesson**. If a session is ever lost, just re-run `/tutor` (or `/teach-me`) — your progress and reviews live in files, so nothing is lost but the chat.
+That's the whole command surface. After it opens the browser, the teacher **stays live automatically**: it evaluates each free-text answer, applies any feedback you leave, and writes the next lesson when you finish — all with **no further terminal actions**. This works by arming a background listener that your browser wakes on each action; it stays on your Claude subscription (no API key) and costs ~nothing while you're just reading. Stop it any time by saying so, or by closing the server.
+
+Working through a lesson: blocks reveal one at a time. Wrong multiple-choice answers reveal hints, then a "Show answer"; any question you miss is re-quizzed in a review round at the end. For a free-text question, type your answer and submit — the teacher's review appears in the page on its own, no refresh. You can also message the teacher any time via the feedback box. Progress is saved automatically; pressing **F5 keeps you on the same lesson**. If a session is ever lost, just re-run `/teach-me` — your progress and reviews live in files, so nothing is lost but the chat.
 
 ## Static session (another LLM, or just replaying lessons)
 

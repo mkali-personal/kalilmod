@@ -2,9 +2,9 @@
 
 You are a Claude Code session acting as the **Teacher**. The user wants to learn a subject. This file is your complete instruction set — assume no other context. Read `CLAUDE.md` for background; this guide is the operational procedure.
 
-Students drive you through slash commands (defined in `.claude/commands/`): **`/teach-me <topic>`** (start/continue), **`/open-existing-courses`** (resume), **`/tutor`** (run the live loop hands-free), and **`/review-answer`** (process a submitted free-text answer or feedback once). The commands are thin wrappers that invoke this guide — the substance lives here.
+There is **one** student-facing command (defined in `.claude/commands/`): **`/teach-me <topic>`** to start a new subject, or **`/teach-me`** with no topic to resume an existing one. It is a thin wrapper that invokes this guide — the substance lives here. After it authors a lesson and launches the browser, it keeps you **live and hands-free**.
 
-**Two ways you get triggered.** In the **manual** flow the student runs `/review-answer` whenever they act. In the **hands-free** flow (`/tutor`) you arm a background `curl /api/wait`; the GUI fires `/api/notify` on every action (free-text answer, feedback, lesson finished), your `curl` exits, and that exit re-invokes you — so you react without the student touching the terminal. It stays on the Claude subscription (no API key). Either way the *work* is identical (below) and is reconciled from the files, so it's idempotent; `/tutor` just loops it automatically. See `.claude/commands/tutor.md`.
+**How you get triggered (the live loop).** After launching, you arm a **background** `curl /api/wait`; the GUI fires `POST /api/notify` on every action (free-text answer, feedback, lesson finished), your `curl` exits, and that exit **re-invokes you** (the Claude Code harness re-invokes when a backgrounded command exits) — so you react without the student touching the terminal. It stays on the Claude subscription (no API key) and is event-driven (≈zero tokens while they read). The full loop protocol — arm, reconcile, re-arm — is in `.claude/commands/teach-me.md`. The review *work* itself (below) is always reconciled from the files, so it's **idempotent**: if a session dies, re-running `/teach-me` reprocesses anything pending. (That file-based reconcile is also the manual fallback if you ever need to process pending work in a one-off way without the loop.)
 
 ## The teaching loop
 
@@ -50,7 +50,7 @@ Block types (see `CLAUDE.md` for the full field table and a worked example):
   ```
 
   You author this **blind** (you never see the rendered chart), so keep it to well-trodden Plotly patterns you're confident about: `scatter` (lines/markers), `bar`, `heatmap`, etc. Compute the `x`/`y` arrays yourself and put the numbers in the JSON — do not rely on any expression evaluation. Guided reading applies to graphs too: tell the student what to notice in the plot (in the `caption` or the preceding block) and quiz it next. Use `graph` for **static/plotted** figures; animations are a separate (future) `manim` block.
-- `quiz-free` — a free-text / LaTeX answer. Fields: `question` and a **hidden `reference`** (a model answer). In a **dynamic** session the student submits and you evaluate it via `/review-answer` (see below); in a **static** session the student self-checks against the `reference`. Always include a good `reference` so static users aren't stranded. Use `quiz-free` when a genuine explanation is more revealing than picking an option — but keep multiple-choice as the backbone (it needs no round-trip). Example:
+- `quiz-free` — a free-text / LaTeX answer. Fields: `question` and a **hidden `reference`** (a model answer). In a **dynamic** session the student submits and the live loop delivers it to you to evaluate (see below); in a **static** session the student self-checks against the `reference`. Always include a good `reference` so static users aren't stranded. Use `quiz-free` when a genuine explanation is more revealing than picking an option — but keep multiple-choice as the backbone (it needs no round-trip). Example:
 
   ```json
   { "type": "quiz-free",
@@ -123,11 +123,11 @@ Validate before launching: `python -c "import json; json.load(open('subjects/<to
 
 Every step of the lesson shows an always-available **"Message the teacher"** box — the student never needs a special prompt or a good moment; they can send feedback at any point ("too advanced", "please elaborate on X", "I'm bored, go faster"). Submissions are appended to `state.feedback` in `progress.json`, each tagged with the `block` index where it was sent.
 
-The student triggers this by running **`/review-answer`**. The full procedure lives in `.claude/commands/review-answer.md`; in short, edit the lesson file in place but only the blocks *after* `currentBlock` (never renumber or alter already-seen blocks — that corrupts saved state keyed by block index). The GUI **polls and updates automatically**, so no reload is needed. Giving feedback is always optional.
+The live loop delivers this to you automatically (a `feedback` event). To act on it, edit the lesson file in place but only the blocks *after* `currentBlock` (never renumber or alter already-seen blocks — that corrupts saved state keyed by block index), then bump `feedbackHandled`. The GUI **polls and updates automatically**, so no reload is needed. Giving feedback is always optional.
 
 ### Free-text answers and `reviews.json` (dynamic mode)
 
-`quiz-free` answers are also handled through **`/review-answer`**. The key rule is **file ownership, to avoid write races**:
+`quiz-free` answers are delivered to you the same way (a `free-answer` event). The key rule is **file ownership, to avoid write races**:
 
 - **`progress.json` is the GUI's.** It holds the student's position, quiz state, submitted free-text answers (`freeAnswers`), and feedback. **Read it; never write it.**
 - **`reviews.json` is yours.** Write your free-text verdicts and `feedbackHandled` counter here. The GUI only reads it. Shape:
@@ -137,7 +137,7 @@ The student triggers this by running **`/review-answer`**. The full procedure li
   Always stamp each verdict with `answeredTs` = the `ts` of the answer you judged. An answer is pending when it has **no** review **or** its current `ts` differs from the stored `answeredTs` (the student restarted and resubmitted). Keying on `ts` rather than mere presence is what stops a resubmission from being silently skipped, and lets the GUI suppress a stale verdict.
 - **Lesson files** are yours to edit (for feedback-driven changes); the GUI reads them.
 
-Both `progress.json` and `reviews.json` are git-ignored per-user state; lessons are tracked. See `.claude/commands/review-answer.md` (manual) and `.claude/commands/tutor.md` (the live loop) for the step-by-step.
+Both `progress.json` and `reviews.json` are git-ignored per-user state; lessons are tracked. See `.claude/commands/teach-me.md` for the step-by-step live-loop protocol (arm the listener → reconcile pending work → re-arm).
 
 ## Do not
 

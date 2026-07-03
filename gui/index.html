@@ -378,7 +378,7 @@ function renderGraphs() {
 function feedbackBox() {
   const wrap = el("div", "block feedbackbox",
     "<p>💬 <b>Message the teacher</b> (optional): stuck, want more detail, too hard or too easy? " +
-    "Write it, send, then run <code>/review-answer</code> in your terminal — the lesson will update here automatically.</p>");
+    "Just write it and send — the teacher picks it up automatically and the lesson updates here, no terminal needed.</p>");
   const ta = el("textarea");
   ta.rows = 2;
   const btn = el("button", "btn primary", "Send feedback");
@@ -393,7 +393,7 @@ function feedbackBox() {
     notify({ kind: "feedback", subject: subject, lesson: lessonFile, block: state.currentBlock });
     ta.value = "";
     msg.className = "feedback-right";
-    msg.textContent = "Saved. Run /review-answer in your terminal and the lesson will update here automatically.";
+    msg.textContent = "Sent — the teacher will pick it up and the lesson will update here automatically.";
   };
   const row = el("div");
   row.style.marginTop = ".6em";
@@ -627,7 +627,7 @@ function renderReference(div, block) {
 }
 
 // Free-text / LaTeX answer. In dynamic mode a live Claude session reviews it
-// (via /review-answer -> reviews.json, which the GUI polls). In static mode the
+// (the live /teach-me loop writes reviews.json, which the GUI polls). In static mode the
 // student self-checks against an optional reference answer.
 function renderFree(div, block, index) {
   state.freeAnswers = state.freeAnswers || {};
