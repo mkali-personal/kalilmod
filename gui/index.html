@@ -112,6 +112,11 @@
     border-radius: 10px; padding: .65em .85em; margin: .7em 0 1em; font-size: .97em;
   }
 
+  .review-round h2 { margin-top: 0; }
+  .review-item { border-top: 1px solid var(--border); margin-top: 1.1em; padding-top: 1.1em; }
+  .review-item:first-of-type { border-top: 0; margin-top: .3em; padding-top: 0; }
+  .review-hidden { opacity: .9; }
+
   /* Subject picker */
   .subject-list { display: flex; flex-direction: column; gap: .65em; }
   .subject-card {
@@ -240,10 +245,18 @@ function renderLesson() {
     $app.appendChild(node);
   }
   if (state.currentBlock >= lesson.blocks.length) {
-    const done = mode === "dynamic"
-      ? "<b>Lesson complete! 🎉</b> Return to your terminal and run <code>/teach-me</code> (same topic) to generate the next lesson."
-      : "<b>Lesson complete! 🎉</b> You've reached the end of the authored lessons.";
-    $app.appendChild(el("div", "block reveal", done));
+    const pending = [];
+    lesson.blocks.forEach((b, i) => {
+      if (b.type === "quiz-choice" && needsReview(state.quiz[i])) pending.push(i);
+    });
+    if (pending.length) {
+      $app.appendChild(renderReviewRound(pending));
+    } else {
+      const done = mode === "dynamic"
+        ? "<b>Lesson complete! 🎉</b> Return to your terminal and run <code>/teach-me</code> (same topic) to generate the next lesson."
+        : "<b>Lesson complete! 🎉</b> You've reached the end of the authored lessons.";
+      $app.appendChild(el("div", "block reveal", done));
+    }
   }
   if (mode === "dynamic") $app.appendChild(feedbackBox());
 
@@ -453,6 +466,22 @@ function renderQuiz(div, block, index) {
   let qs = state.quiz[index];
   if (!qs) { qs = state.quiz[index] = newQuizState(block); saveProgress(); }
   if (!qs.order || qs.order.length !== block.options.length) qs.order = newQuizState(block).order;
+
+  // During the end-of-lesson review, hide the answer in the original occurrence
+  // so scrolling up to re-read the content doesn't reveal it.
+  if (state.currentBlock >= lesson.blocks.length && needsReview(qs)) {
+    div.classList.add("review-hidden");
+    div.innerHTML = `<div class="qlabel">Quiz</div><div class="qtext">${block.question}</div>`;
+    const form = el("form", "options");
+    qs.order.forEach((origIdx) => {
+      form.appendChild(el("label", "option",
+        `<input type="radio" disabled> <span>${block.options[origIdx]}</span>`));
+    });
+    div.appendChild(form);
+    div.appendChild(el("div", "hint", "🔒 Answer hidden — re-answer this in the review round at the bottom of the lesson."));
+    return;
+  }
+
   const answered = qs.correct || qs.revealed;
   div.classList.add(qs.correct ? "correct" : qs.revealed ? "revealed" : "open");
   div.innerHTML = `<div class="qlabel">Quiz</div><div class="qtext">${block.question}</div>`;
@@ -501,6 +530,62 @@ function renderQuiz(div, block, index) {
     feedback.className = "feedback-wrong";
     feedback.textContent = "Not quite — try again.";
   }
+}
+
+// A quiz was "missed" if it took a retry or the answer was revealed; such
+// questions are re-quizzed at the end until cleared (spaced retrieval).
+function quizMissed(qs) { return !!qs && (qs.retries > 0 || qs.revealed); }
+function needsReview(qs) { return quizMissed(qs) && !qs.reviewCleared; }
+
+function renderReviewRound(pending) {
+  const wrap = el("div", "block reveal review-round");
+  wrap.appendChild(el("h2", null, "🔁 Review round"));
+  wrap.appendChild(el("p", "caption",
+    "You missed these earlier. Answer them again — no hints this time. Scroll up to re-read the material if you need to (the answers there are hidden)."));
+  pending.forEach((i) => wrap.appendChild(renderReviewItem(lesson.blocks[i], i)));
+  return wrap;
+}
+
+function renderReviewItem(block, index) {
+  const qs = state.quiz[index];
+  if (!qs.reviewOrder || qs.reviewOrder.length !== block.options.length) {
+    qs.reviewOrder = newQuizState(block).order;  // reshuffle so position isn't memorised
+    saveProgress();
+  }
+  const div = el("div", "review-item");
+  div.innerHTML = `<div class="qtext">${block.question}</div>`;
+  const form = el("form", "options");
+  qs.reviewOrder.forEach((origIdx) => {
+    form.appendChild(el("label", "option",
+      `<input type="radio" name="rv${index}" value="${origIdx}"> <span>${block.options[origIdx]}</span>`));
+  });
+  div.appendChild(form);
+  const feedback = el("p");
+  div.appendChild(feedback);
+
+  const attempts = qs.reviewAttempts || 0;
+  const check = el("button", "btn primary", "Check answer");
+  check.onclick = () => {
+    const sel = form.querySelector("input:checked");
+    if (!sel) { feedback.className = "feedback-wrong"; feedback.textContent = "Pick an answer first."; return; }
+    if (Number(sel.value) === block.answer) {
+      qs.reviewCleared = true; saveProgress(); renderLesson();
+    } else {
+      qs.reviewAttempts = attempts + 1; saveProgress(); renderLesson();
+    }
+  };
+  div.appendChild(check);
+
+  if (attempts >= 3) {
+    const reveal = el("button", "btn ghost", "Show answer");
+    reveal.onclick = () => { qs.reviewCleared = true; qs.reviewRevealed = true; saveProgress(); renderLesson(); };
+    div.appendChild(reveal);
+  }
+  if (attempts > 0) {
+    feedback.className = "feedback-wrong";
+    feedback.textContent = "Not quite — scroll up to re-read the material, then try again.";
+  }
+  return div;
 }
 
 function escapeHtml(s) {

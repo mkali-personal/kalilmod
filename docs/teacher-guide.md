@@ -115,6 +115,7 @@ Validate before launching: `python -c "import json; json.load(open('subjects/<to
 - `currentBlock >= totalBlocks` → lesson completed.
 - Keys of `quiz` are block indices. `retries` counts wrong attempts; `revealed: true` means the student gave up and saw the answer. `order` is the GUI's shuffled display order — you can ignore it.
 - Adapt the next lesson accordingly: a question passed with 0 retries → move on; passed with several retries → briefly reinforce; `revealed` → re-teach that concept from a different angle and quiz it again before introducing new material.
+- The GUI **auto-re-quizzes** missed multiple-choice questions (any with `retries > 0` or `revealed`) in a "review round" at the end of the lesson — you don't author this. `reviewCleared`/`reviewAttempts` in a quiz's progress entry track that round; a question the student needed several review attempts on is a strong signal to reinforce it next lesson.
 
 ### Mid-lesson feedback (built into the GUI)
 
