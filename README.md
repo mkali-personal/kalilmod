@@ -5,41 +5,37 @@ An interactive learning tool: Claude Code acts as your teacher, writing lessons 
 ## Prerequisites
 
 - Python 3 (no packages needed — the server is standard library only)
-- Claude Code
-- Internet in the browser (the viewer loads Markdown/LaTeX renderers from a CDN, plus any linked videos)
+- Claude Code (for a **dynamic** session; a static session can use any LLM — see below)
+- Internet in the browser (the viewer loads Markdown/LaTeX/graph renderers from a CDN, plus any linked videos)
 
-## How to learn a subject
+## Dynamic vs. static sessions
 
-**Start with Claude Code, not with `serve.py`.** The teacher session interviews you first, writes the lesson, and then launches the server itself.
+- **Dynamic** (Claude Code): the live session can review your free-text answers and adjust lessons on the fly. This is the full experience. Started by the slash commands below, which launch the server for you.
+- **Static** (any other LLM, or just replaying lessons): you run the server yourself with `python serve.py --static`. Multiple-choice and graphs work fully; free-text questions are self-checked against a reference answer instead of being reviewed live.
 
-1. Open a terminal in this repository and run `claude`.
-2. Prompt it with something like:
+## How to learn a subject (dynamic)
 
-   > I want to learn **[your topic]**. Act as the Kalilmod Teacher: read `docs/teacher-guide.md` and follow it.
+**Start with Claude Code, not with `serve.py`** — the teacher interviews you, writes the lesson, and launches the server itself. In a terminal in this repo, run `claude`, then use these slash commands:
 
-   or, for a subject you started before:
+- **`/teach-me <topic>`** — start a new subject or continue an existing one. Example: `/teach-me the Krebs cycle`. The teacher interviews you in the terminal, writes the lesson, and opens your browser at it.
+- **`/open-existing-courses`** — list the subjects you already have and open the tool to resume one (no new content).
+- **`/review-answer`** — run this after you submit a **free-text answer** or leave **feedback** in the browser. The teacher reads what you left, evaluates the answer (or adjusts the lesson), and the page updates automatically — no refresh.
 
-   > I want to continue learning **[topic]**. Act as the Kalilmod Teacher: read `docs/teacher-guide.md` and follow it.
+Working through a lesson: blocks reveal one at a time. Wrong multiple-choice answers reveal hints, then a "Show answer". For a free-text question, type your answer, submit, then run `/review-answer` in the terminal — the review appears in the page on its own. You can also message the teacher any time via the feedback box and run `/review-answer` to have the lesson adjusted. Progress is saved automatically; pressing **F5 keeps you on the same lesson**.
 
-   (Mentioning the guide explicitly is a safety net — `CLAUDE.md` is loaded automatically and already points a "teach me" request to the guide, but being explicit costs nothing.)
+## Static session (another LLM, or just replaying lessons)
 
-3. Answer the interview questions in the terminal so the teacher can gauge your level.
-4. The teacher writes the lesson and starts the server; your browser opens at the lesson picker. Pick your lesson and work through it — wrong answers reveal hints, and your progress is saved automatically.
-5. When you finish (or want more), **return to the terminal** and tell the teacher. It reads your quiz results and writes the next lesson, adapted to what you struggled with.
-
-## Just re-reading existing lessons
-
-If you only want to reopen lessons that already exist (no new content needed), skip Claude entirely:
+If you don't have Claude Code, another LLM can still generate lesson files (it reads `docs/teacher-guide.md` and writes `subjects/<topic>/lesson-NN.json`). To study them:
 
 ```
-python serve.py
+python serve.py --static
 ```
 
-The browser opens at the lesson picker; your progress is where you left it. `--port N` and `--no-browser` flags are available.
+The browser opens at the lesson picker; free-text questions let you write an answer and then reveal a reference answer to self-check. `--port N` and `--no-browser` flags are also available. (Running `python serve.py` with no flag is dynamic mode, which assumes a live Claude session for reviews.)
 
 ## Trying the mechanisms
 
-The `_demo` subject is a self-guided test of the tool itself (hints, "Show answer", video embeds). Run `python serve.py` and pick `_demo`.
+The `_demo` subject is a self-guided test of the tool itself (hints, "Show answer", video embeds, graphs, free-response). Run `python serve.py` and pick `_demo`.
 
 ## Developing the tool
 

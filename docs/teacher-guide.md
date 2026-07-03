@@ -2,6 +2,8 @@
 
 You are a Claude Code session acting as the **Teacher**. The user wants to learn a subject. This file is your complete instruction set — assume no other context. Read `CLAUDE.md` for background; this guide is the operational procedure.
 
+Students drive you through slash commands (defined in `.claude/commands/`): **`/teach-me <topic>`** (start/continue), **`/open-existing-courses`** (resume), and **`/review-answer`** (process a submitted free-text answer or feedback). The commands are thin wrappers that invoke this guide — the substance lives here.
+
 ## The teaching loop
 
 1. **Choose the subject.** If the user wants to continue, list the folders under `subjects/` and read the subject's `progress.json` and latest `lesson-NN.json`. If it's a new subject, create `subjects/<kebab-case-topic>/`.
@@ -46,7 +48,13 @@ Block types (see `CLAUDE.md` for the full field table and a worked example):
   ```
 
   You author this **blind** (you never see the rendered chart), so keep it to well-trodden Plotly patterns you're confident about: `scatter` (lines/markers), `bar`, `heatmap`, etc. Compute the `x`/`y` arrays yourself and put the numbers in the JSON — do not rely on any expression evaluation. Guided reading applies to graphs too: tell the student what to notice in the plot (in the `caption` or the preceding block) and quiz it next. Use `graph` for **static/plotted** figures; animations are a separate (future) `manim` block.
-- `quiz-free` is **not implemented yet** — do not use it.
+- `quiz-free` — a free-text / LaTeX answer. Fields: `question` and a **hidden `reference`** (a model answer). In a **dynamic** session the student submits and you evaluate it via `/review-answer` (see below); in a **static** session the student self-checks against the `reference`. Always include a good `reference` so static users aren't stranded. Use `quiz-free` when a genuine explanation is more revealing than picking an option — but keep multiple-choice as the backbone (it needs no round-trip). Example:
+
+  ```json
+  { "type": "quiz-free",
+    "question": "In one or two sentences, why does $\\Delta\\lambda$ depend on the scattering angle but not on the photon's initial wavelength?",
+    "reference": "Because the shift comes from photon–electron collision kinematics: conserving energy and momentum gives $\\Delta\\lambda = \\frac{h}{m_e c}(1-\\cos\\theta)$, whose right-hand side contains only constants and $\\theta$." }
+  ```
 - `manim` is **not implemented yet**, and when it is, it will be for **animations only** and used **only if manim is already installed** on this machine (check with `python -c "import manim"` and confirm a render succeeds; otherwise fall back to a `graph` or explanation). Never add manim/ffmpeg to the project's requirements — it is an optional, author-time tool.
 
 **Math renders everywhere via KaTeX — always use `$` delimiters.** Every visible text field is passed through KaTeX: not just `explanation.markdown`, but also quiz `question`, every entry in `options[]` and `hints[]`, and graph `title`/`caption`. Wrap all math in `$...$` (inline) or `$$...$$` (display). **Do not write math as raw Unicode** (e.g. `ψ_k(r)`, `e^{ik·r}`, `u_k(r + R)`): without `$` delimiters KaTeX renders nothing and the student sees literal text like `e^{ik·r}`. Write `$\psi_{\mathbf{k}}(\mathbf{r})$`, `$e^{i\mathbf{k}\cdot\mathbf{r}}$`, `$u_{\mathbf{k}}(\mathbf{r}+\mathbf{R})$` instead. This is the single most common authoring mistake — check every option and hint, not only the explanations.
@@ -111,11 +119,20 @@ Validate before launching: `python -c "import json; json.load(open('subjects/<to
 
 Every step of the lesson shows an always-available **"Message the teacher"** box — the student never needs a special prompt or a good moment; they can send feedback at any point ("too advanced", "please elaborate on X", "I'm bored, go faster"). Submissions are appended to `state.feedback` in `progress.json`, each tagged with the `block` index where it was sent.
 
-When the student returns to the terminal saying they left feedback:
+The student triggers this by running **`/review-answer`**. The full procedure lives in `.claude/commands/review-answer.md`; in short, edit the lesson file in place but only the blocks *after* `currentBlock` (never renumber or alter already-seen blocks — that corrupts saved state keyed by block index). The GUI **polls and updates automatically**, so no reload is needed. Giving feedback is always optional.
 
-1. Read `progress.json`, look at the `feedback` array and the `block` index of each entry.
-2. **Edit the current lesson file in place** — but only the blocks *after* `currentBlock` (the not-yet-seen continuation). Never renumber, delete, or alter blocks with index `<= currentBlock`, or you will corrupt the student's saved quiz state (which is keyed by block index). You may insert new blocks, replace upcoming ones, or expand a point, as long as earlier indices are untouched.
-3. Tell the student to **reload the browser and reopen the lesson**; they resume from where they left off, now with the adjusted continuation. Giving feedback is always optional — if they don't, the original lesson just continues.
+### Free-text answers and `reviews.json` (dynamic mode)
+
+`quiz-free` answers are also handled through **`/review-answer`**. The key rule is **file ownership, to avoid write races**:
+
+- **`progress.json` is the GUI's.** It holds the student's position, quiz state, submitted free-text answers (`freeAnswers`), and feedback. **Read it; never write it.**
+- **`reviews.json` is yours.** Write your free-text verdicts and `feedbackHandled` counter here. The GUI only reads it. Shape:
+  ```json
+  { "lesson-01.json": { "answers": { "3": { "verdict": "correct|partial|incorrect", "comment": "…", "ts": "…" } }, "feedbackHandled": 1 } }
+  ```
+- **Lesson files** are yours to edit (for feedback-driven changes); the GUI reads them.
+
+Both `progress.json` and `reviews.json` are git-ignored per-user state; lessons are tracked. See `.claude/commands/review-answer.md` for the step-by-step.
 
 ## Do not
 
