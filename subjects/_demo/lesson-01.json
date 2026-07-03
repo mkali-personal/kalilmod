@@ -53,8 +53,13 @@
       "hints": ["A square is never negative; a cube keeps the sign of its input."]
     },
     {
+      "type": "quiz-free",
+      "question": "Free-response test: in one sentence, what does Compton scattering demonstrate about the nature of light? (In dynamic mode, submit then run /review-answer. In static mode, reveal the reference and self-check.)",
+      "reference": "That light behaves like particles (photons) carrying momentum — a photon–electron collision shifts the photon's wavelength, which classical wave theory cannot explain."
+    },
+    {
       "type": "explanation",
-      "markdown": "Demo complete. If you saw: sequential reveal, two hints, a *Show answer* button, an embedded video, an **interactive graph** (try hovering and zooming), LaTeX like $E = mc^2$, and this final block — everything works. Use *⟲ Restart lesson* to run the test again."
+      "markdown": "Demo complete. If you saw: sequential reveal, two hints, a *Show answer* button, an embedded video, an **interactive graph** (try hovering and zooming), a **free-response question**, LaTeX like $E = mc^2$, and this final block — everything works. Use *⟲ Restart lesson* to run the test again."
     }
   ]
 }

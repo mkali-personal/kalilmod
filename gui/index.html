@@ -65,8 +65,8 @@
   .btn.ghost:hover { color: var(--text); border-color: var(--accent); }
 
   /* Quiz */
-  .quiz .qlabel { font-weight: 600; color: var(--accent); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
-  .quiz .qtext { font-weight: 500; margin: .2em 0 1em; }
+  .qlabel { font-weight: 600; color: var(--accent); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
+  .qtext { font-weight: 500; margin: .2em 0 1em; }
   .options { display: flex; flex-direction: column; gap: .55em; }
   label.option {
     display: flex; align-items: center; gap: .75em; padding: .75em .95em;
@@ -100,6 +100,11 @@
   .plotly-graph { width: 100%; }
   .caption { color: var(--muted); font-size: .9em; margin: .5em 0 0; }
 
+  .your-answer { background: var(--accent-soft); border-radius: 9px; padding: .6em .8em; margin: .6em 0; }
+  .review { background: var(--surface); border: 1px solid var(--border); border-left-width: 4px; border-radius: 9px; padding: .6em .8em; margin: .6em 0; }
+  .review.correct { border-left-color: var(--good); }
+  .review.incorrect { border-left-color: var(--bad); }
+
   /* Subject picker */
   .subject-list { display: flex; flex-direction: column; gap: .65em; }
   .subject-card {
@@ -117,7 +122,7 @@
 <body>
 <header>
   <h1 id="title">Kalilmod</h1>
-  <p class="tagline">קל ללמוד — learn by doing, one small step at a time.</p>
+  <p class="tagline">קלילמוד — learn by doing, one small step at a time.</p>
 </header>
 <div id="app">Loading…</div>
 
@@ -129,6 +134,11 @@ let progress = {};        // whole progress.json for the subject
 let state = null;         // progress[lessonFile]
 let animatedThrough = -1; // highest block index already animated (avoids re-animating on re-render)
 let pendingGraphs = [];   // graph blocks waiting to be plotted after they're in the DOM
+let mode = "dynamic";     // "dynamic" (live Claude) or "static" (self-assessed); from /api/mode
+let reviews = {};         // reviews.json for the subject (Claude-owned, polled read-only)
+let pollTimer = null;
+let lastLessonJSON = "";  // to detect live lesson edits (feedback-driven)
+let lastReviewsJSON = ""; // to detect newly-arrived free-text reviews
 
 function el(tag, cls, html) {
   const e = document.createElement(tag);
@@ -150,6 +160,8 @@ async function saveProgress() {
 }
 
 async function main() {
+  stopPolling();
+  subject = null; lessonFile = null; lesson = null;
   document.getElementById("title").textContent = "Kalilmod";
   const subjects = await (await fetch("/api/subjects")).json();
   if (subjects.length === 0) { $app.textContent = "No subjects found in subjects/."; return; }
@@ -165,7 +177,7 @@ async function main() {
         : `in progress · ${st.currentBlock + 1}/${st.totalBlocks}`;
       const card = el("button", "subject-card",
         `<span class="sc-title">${s.subject} — ${l}</span><span class="sc-status">${status}</span>`);
-      card.onclick = () => openLesson(s.subject, l);
+      card.onclick = () => { location.hash = "subject=" + encodeURIComponent(s.subject) + "&lesson=" + encodeURIComponent(l); };
       list.appendChild(card);
     }
   }
@@ -174,11 +186,18 @@ async function main() {
 
 async function openLesson(subj, file) {
   subject = subj; lessonFile = file; animatedThrough = -1;
+  const h = "subject=" + encodeURIComponent(subj) + "&lesson=" + encodeURIComponent(file);
+  if (location.hash.slice(1) !== h) location.hash = h;  // so F5 restores this lesson
   lesson = await (await fetch(`/api/lesson?subject=${encodeURIComponent(subj)}&lesson=${encodeURIComponent(file)}`)).json();
+  lastLessonJSON = JSON.stringify(lesson);
   progress = await (await fetch("/api/progress?subject=" + encodeURIComponent(subj))).json();
+  const reviewsAll = await (await fetch("/api/reviews?subject=" + encodeURIComponent(subj))).json();
+  reviews = reviewsAll;
+  lastReviewsJSON = JSON.stringify(reviewsAll[file] || {});
   state = progress[lessonFile] || { currentBlock: 0, quiz: {} };
   state.totalBlocks = lesson.blocks.length;
   document.getElementById("title").textContent = lesson.title;
+  startPolling();
   renderLesson();
 }
 
@@ -192,14 +211,16 @@ function renderLesson() {
     $app.appendChild(node);
   }
   if (state.currentBlock >= lesson.blocks.length) {
-    $app.appendChild(el("div", "block reveal",
-      "<b>Lesson complete! 🎉</b> Return to your Claude Code terminal session to generate the next lesson."));
+    const done = mode === "dynamic"
+      ? "<b>Lesson complete! 🎉</b> Return to your terminal and run <code>/teach-me</code> (same topic) to generate the next lesson."
+      : "<b>Lesson complete! 🎉</b> You've reached the end of the authored lessons.";
+    $app.appendChild(el("div", "block reveal", done));
   }
-  $app.appendChild(feedbackBox());
+  if (mode === "dynamic") $app.appendChild(feedbackBox());
 
   const toolbar = el("div", "toolbar");
   const back = el("button", "btn ghost", "← All lessons");
-  back.onclick = main;
+  back.onclick = () => { location.hash = ""; };
   const restart = el("button", "btn ghost", "⟲ Restart lesson");
   restart.onclick = () => {
     state = { currentBlock: 0, quiz: {}, totalBlocks: lesson.blocks.length };
@@ -261,7 +282,7 @@ function renderGraphs() {
 function feedbackBox() {
   const wrap = el("div", "block feedbackbox",
     "<p>💬 <b>Message the teacher</b> (optional): stuck, want more detail, too hard or too easy? " +
-    "Write it, send, then go back to your terminal and tell the teacher you left feedback.</p>");
+    "Write it, send, then run <code>/review-answer</code> in your terminal — the lesson will update here automatically.</p>");
   const ta = el("textarea");
   ta.rows = 2;
   const btn = el("button", "btn primary", "Send feedback");
@@ -275,7 +296,7 @@ function feedbackBox() {
     saveProgress();
     ta.value = "";
     msg.className = "feedback-right";
-    msg.textContent = "Saved. Return to your terminal so the teacher can adjust the lesson.";
+    msg.textContent = "Saved. Run /review-answer in your terminal and the lesson will update here automatically.";
   };
   const row = el("div");
   row.style.marginTop = ".6em";
@@ -326,6 +347,8 @@ function renderBlock(block, index) {
     if (isCurrent) div.appendChild(continueButton());
   } else if (block.type === "quiz-choice") {
     renderQuiz(div, block, index);
+  } else if (block.type === "quiz-free") {
+    renderFree(div, block, index);
   } else {
     div.textContent = `[Unsupported block type: ${block.type}]`;
     if (isCurrent) div.appendChild(continueButton());
@@ -398,7 +421,127 @@ function renderQuiz(div, block, index) {
   }
 }
 
-main();
+function escapeHtml(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;")
+                  .replace(/>/g, "&gt;").replace(/\n/g, "<br>");
+}
+
+function reviewFor(index) {
+  const r = reviews[lessonFile];
+  return r && r.answers ? r.answers[String(index)] : undefined;
+}
+
+function renderReference(div, block) {
+  if (!block.reference) return;
+  const btn = el("button", "btn ghost", "Reveal reference answer & self-check");
+  const ref = el("div", "review");
+  ref.style.display = "none";
+  ref.innerHTML = "<b>Reference answer:</b> " + block.reference;
+  btn.onclick = () => { ref.style.display = "block"; btn.style.display = "none"; renderMath(ref); };
+  div.appendChild(btn);
+  div.appendChild(ref);
+}
+
+// Free-text / LaTeX answer. In dynamic mode a live Claude session reviews it
+// (via /review-answer -> reviews.json, which the GUI polls). In static mode the
+// student self-checks against an optional reference answer.
+function renderFree(div, block, index) {
+  state.freeAnswers = state.freeAnswers || {};
+  const fa = state.freeAnswers[index];
+  const isCurrent = index === state.currentBlock;
+  div.innerHTML = `<div class="qlabel">Free response</div><div class="qtext">${block.question}</div>`;
+
+  if (!fa) {
+    const ta = el("textarea");
+    ta.rows = 4;
+    ta.placeholder = "Type your answer. You can use $...$ for LaTeX.";
+    div.appendChild(ta);
+    const preview = el("div", "caption");
+    div.appendChild(preview);
+    ta.oninput = () => { preview.textContent = ta.value; renderMath(preview); };
+    const submit = el("button", "btn primary", "Submit answer");
+    const msg = el("span");
+    msg.style.marginLeft = ".6em";
+    submit.onclick = () => {
+      const text = ta.value.trim();
+      if (!text) { msg.className = "feedback-wrong"; msg.textContent = "Write an answer first."; return; }
+      state.freeAnswers[index] = { text: text, ts: new Date().toISOString(),
+        status: mode === "static" ? "self" : "submitted" };
+      saveProgress();
+      renderLesson();
+    };
+    const row = el("div");
+    row.style.marginTop = ".6em";
+    row.appendChild(submit);
+    row.appendChild(msg);
+    div.appendChild(row);
+    return;
+  }
+
+  div.appendChild(el("div", "your-answer", "<b>Your answer:</b><br>" + escapeHtml(fa.text)));
+
+  const review = reviewFor(index);
+  if (review) {
+    const cls = review.verdict === "correct" ? "correct" : review.verdict === "incorrect" ? "incorrect" : "";
+    div.appendChild(el("div", "review " + cls,
+      "<b>Teacher review (" + review.verdict + "):</b> " + review.comment));
+  } else if (mode === "dynamic") {
+    div.appendChild(el("div", "hint",
+      "Answer submitted. In your terminal, run <code>/review-answer</code> — the review will appear here automatically."));
+  }
+
+  if (mode === "static") renderReference(div, block);
+
+  if (isCurrent) {
+    const canContinue = review || mode === "static" || fa.continued;
+    if (canContinue) {
+      div.appendChild(continueButton());
+    } else {
+      const esc = el("button", "btn ghost", "Continue without review");
+      esc.onclick = () => { fa.continued = true; saveProgress(); unlockNext(); };
+      div.appendChild(esc);
+    }
+  }
+}
+
+// --- Live updates: poll the read-only Claude-owned files while a lesson is open ---
+function startPolling() { stopPolling(); pollTimer = setInterval(pollUpdates, 3000); }
+function stopPolling() { if (pollTimer) { clearInterval(pollTimer); pollTimer = null; } }
+
+async function pollUpdates() {
+  if (!subject || !lessonFile) return;
+  try {
+    const newLesson = await (await fetch(`/api/lesson?subject=${encodeURIComponent(subject)}&lesson=${encodeURIComponent(lessonFile)}`)).json();
+    const newReviewsAll = await (await fetch("/api/reviews?subject=" + encodeURIComponent(subject))).json();
+    const ljson = JSON.stringify(newLesson);
+    const rjson = JSON.stringify(newReviewsAll[lessonFile] || {});
+    if (ljson === lastLessonJSON && rjson === lastReviewsJSON) return;      // nothing new
+    if (document.activeElement && document.activeElement.tagName === "TEXTAREA") return; // don't clobber typing; retry next cycle
+    lesson = newLesson; lastLessonJSON = ljson;
+    reviews = newReviewsAll; lastReviewsJSON = rjson;
+    state.totalBlocks = lesson.blocks.length;
+    renderLesson();
+  } catch (e) { /* transient; try again next tick */ }
+}
+
+// --- Routing: the URL hash holds the open lesson so refresh (F5) restores it ---
+function route() {
+  const params = new URLSearchParams(location.hash.slice(1));
+  const s = params.get("subject"), l = params.get("lesson");
+  if (s && l) {
+    if (s === subject && l === lessonFile) return; // already open
+    openLesson(s, l);
+  } else {
+    main();
+  }
+}
+
+async function boot() {
+  try { mode = (await (await fetch("/api/mode")).json()).mode; } catch (e) { /* default dynamic */ }
+  window.addEventListener("hashchange", route);
+  route();
+}
+boot();
 </script>
 </body>
 </html>
