@@ -192,6 +192,16 @@ async function saveProgress() {
     method: "POST", body: JSON.stringify(progress) });
 }
 
+// Wake the live teacher session: a backgrounded `curl /api/wait` in the Claude
+// session unblocks on this and re-invokes it (see serve.py). Only meaningful in
+// dynamic mode; harmless (and silently ignored) if no teacher is listening.
+async function notify(event) {
+  if (mode !== "dynamic") return;
+  try {
+    await fetch("/api/notify", { method: "POST", body: JSON.stringify(event) });
+  } catch (e) { /* no teacher armed right now — fine */ }
+}
+
 async function main() {
   stopPolling();
   subject = null; lessonFile = null; lesson = null;
@@ -256,6 +266,12 @@ function renderLesson() {
         ? "<b>Lesson complete! 🎉</b> Return to your terminal and run <code>/teach-me</code> (same topic) to generate the next lesson."
         : "<b>Lesson complete! 🎉</b> You've reached the end of the authored lessons.";
       $app.appendChild(el("div", "block reveal", done));
+      // Tell a live teacher the student is out of content — once per completion.
+      if (mode === "dynamic" && !state.notifiedComplete) {
+        state.notifiedComplete = true;
+        saveProgress();
+        notify({ kind: "lesson-complete", subject: subject, lesson: lessonFile });
+      }
     }
   }
   if (mode === "dynamic") $app.appendChild(feedbackBox());
@@ -374,6 +390,7 @@ function feedbackBox() {
     state.feedback = state.feedback || [];
     state.feedback.push({ block: state.currentBlock, text: text, ts: new Date().toISOString() });
     saveProgress();
+    notify({ kind: "feedback", subject: subject, lesson: lessonFile, block: state.currentBlock });
     ta.value = "";
     msg.className = "feedback-right";
     msg.textContent = "Saved. Run /review-answer in your terminal and the lesson will update here automatically.";
@@ -635,6 +652,7 @@ function renderFree(div, block, index) {
       state.freeAnswers[index] = { text: text, ts: new Date().toISOString(),
         status: mode === "static" ? "self" : "submitted" };
       saveProgress();
+      notify({ kind: "free-answer", subject: subject, lesson: lessonFile, block: index });
       renderLesson();
     };
     const row = el("div");
