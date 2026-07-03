@@ -19,9 +19,10 @@ An interactive learning tool: Claude Code acts as your teacher, writing lessons 
 
 - **`/teach-me <topic>`** — start a new subject or continue an existing one. Example: `/teach-me the Krebs cycle`. The teacher interviews you in the terminal, writes the lesson, and opens your browser at it.
 - **`/open-existing-courses`** — list the subjects you already have and open the tool to resume one (no new content).
-- **`/review-answer`** — run this after you submit a **free-text answer** or leave **feedback** in the browser. The teacher reads what you left, evaluates the answer (or adjusts the lesson), and the page updates automatically — no refresh.
+- **`/tutor`** — go **hands-free** (recommended). Run it once and the teacher reacts to the browser automatically: it evaluates each free-text answer, applies your feedback, and writes the next lesson when you finish — all with **no further terminal actions**. It works by arming a background listener that the browser wakes on each action; it stays on your Claude subscription (no API key). Stop it any time by saying so, or by closing the server.
+- **`/review-answer`** — the **manual** alternative to `/tutor`: run it after you submit a free-text answer or leave feedback and the teacher processes what's pending, once. Use it if you'd rather not keep a live loop running.
 
-Working through a lesson: blocks reveal one at a time. Wrong multiple-choice answers reveal hints, then a "Show answer". For a free-text question, type your answer, submit, then run `/review-answer` in the terminal — the review appears in the page on its own. You can also message the teacher any time via the feedback box and run `/review-answer` to have the lesson adjusted. Progress is saved automatically; pressing **F5 keeps you on the same lesson**.
+Working through a lesson: blocks reveal one at a time. Wrong multiple-choice answers reveal hints, then a "Show answer"; any question you miss is re-quizzed in a review round at the end. For a free-text question, type your answer and submit — with `/tutor` running the review just appears in the page on its own (otherwise run `/review-answer`). You can also message the teacher any time via the feedback box. Progress is saved automatically; pressing **F5 keeps you on the same lesson**. If a session is ever lost, just re-run `/tutor` (or `/teach-me`) — your progress and reviews live in files, so nothing is lost but the chat.
 
 ## Static session (another LLM, or just replaying lessons)
 

@@ -2,7 +2,9 @@
 
 You are a Claude Code session acting as the **Teacher**. The user wants to learn a subject. This file is your complete instruction set — assume no other context. Read `CLAUDE.md` for background; this guide is the operational procedure.
 
-Students drive you through slash commands (defined in `.claude/commands/`): **`/teach-me <topic>`** (start/continue), **`/open-existing-courses`** (resume), and **`/review-answer`** (process a submitted free-text answer or feedback). The commands are thin wrappers that invoke this guide — the substance lives here.
+Students drive you through slash commands (defined in `.claude/commands/`): **`/teach-me <topic>`** (start/continue), **`/open-existing-courses`** (resume), **`/tutor`** (run the live loop hands-free), and **`/review-answer`** (process a submitted free-text answer or feedback once). The commands are thin wrappers that invoke this guide — the substance lives here.
+
+**Two ways you get triggered.** In the **manual** flow the student runs `/review-answer` whenever they act. In the **hands-free** flow (`/tutor`) you arm a background `curl /api/wait`; the GUI fires `/api/notify` on every action (free-text answer, feedback, lesson finished), your `curl` exits, and that exit re-invokes you — so you react without the student touching the terminal. It stays on the Claude subscription (no API key). Either way the *work* is identical (below) and is reconciled from the files, so it's idempotent; `/tutor` just loops it automatically. See `.claude/commands/tutor.md`.
 
 ## The teaching loop
 
@@ -130,11 +132,12 @@ The student triggers this by running **`/review-answer`**. The full procedure li
 - **`progress.json` is the GUI's.** It holds the student's position, quiz state, submitted free-text answers (`freeAnswers`), and feedback. **Read it; never write it.**
 - **`reviews.json` is yours.** Write your free-text verdicts and `feedbackHandled` counter here. The GUI only reads it. Shape:
   ```json
-  { "lesson-01.json": { "answers": { "3": { "verdict": "correct|partial|incorrect", "comment": "…" } }, "feedbackHandled": 1 } }
+  { "lesson-01.json": { "answers": { "3": { "verdict": "correct|partial|incorrect", "comment": "…", "answeredTs": "<freeAnswers[3].ts>" } }, "feedbackHandled": 1 } }
   ```
+  Always stamp each verdict with `answeredTs` = the `ts` of the answer you judged. An answer is pending when it has **no** review **or** its current `ts` differs from the stored `answeredTs` (the student restarted and resubmitted). Keying on `ts` rather than mere presence is what stops a resubmission from being silently skipped, and lets the GUI suppress a stale verdict.
 - **Lesson files** are yours to edit (for feedback-driven changes); the GUI reads them.
 
-Both `progress.json` and `reviews.json` are git-ignored per-user state; lessons are tracked. See `.claude/commands/review-answer.md` for the step-by-step.
+Both `progress.json` and `reviews.json` are git-ignored per-user state; lessons are tracked. See `.claude/commands/review-answer.md` (manual) and `.claude/commands/tutor.md` (the live loop) for the step-by-step.
 
 ## Do not
 
