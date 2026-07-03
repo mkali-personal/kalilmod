@@ -1,2 +1,4 @@
 .idea/
+# Per-user learning state stays local; lessons themselves are tracked.
 subjects/**/progress.json
+subjects/**/reviews.json
