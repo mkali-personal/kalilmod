@@ -106,6 +106,13 @@
   .review.correct { border-left-color: var(--good); }
   .review.incorrect { border-left-color: var(--bad); }
 
+  /* Orienting "lead" callout: gentle tinted box between a block's title and its content. */
+  .lead {
+    background: var(--accent-soft); border: 1px solid var(--border); border-left: 4px solid var(--accent);
+    border-radius: 10px; padding: .65em .85em; margin: .7em 0 1em; font-size: .97em;
+  }
+  .lead::before { content: "👀 "; opacity: .8; }
+
   /* Subject picker */
   .subject-list { display: flex; flex-direction: column; gap: .65em; }
   .subject-card {
@@ -118,6 +125,25 @@
   .sc-title { font-weight: 600; }
   .sc-status { color: var(--muted); font-size: .9em; white-space: nowrap; }
   .toolbar { margin-top: 1.5em; padding-top: 1.2em; border-top: 1px solid var(--border); }
+
+  /* Progress rail: one dot per content part, down the left margin. */
+  #progress-rail {
+    position: fixed; left: 24px; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: .85em; z-index: 10;
+  }
+  #progress-rail:empty { display: none; }
+  #progress-rail::before {
+    content: ""; position: absolute; left: 50%; top: 4px; bottom: 4px;
+    width: 2px; background: var(--border); transform: translateX(-50%); z-index: -1;
+  }
+  #progress-rail .dot {
+    width: 11px; height: 11px; border-radius: 50%;
+    background: transparent; border: 2px solid var(--border); transition: all .2s ease;
+  }
+  #progress-rail .dot.passed { background: var(--accent); border-color: var(--accent); opacity: .5; cursor: pointer; }
+  #progress-rail .dot.current { background: var(--accent); border-color: var(--accent);
+    transform: scale(1.35); box-shadow: 0 0 0 3px var(--accent-soft); cursor: pointer; }
+  @media (max-width: 940px) { #progress-rail { display: none; } }
 </style>
 </head>
 <body>
@@ -126,6 +152,7 @@
   <p class="tagline">קלילמוד — learn by doing, one small step at a time.</p>
 </header>
 <div id="app">Loading…</div>
+<div id="progress-rail" aria-hidden="true"></div>
 
 <script>
 "use strict";
@@ -163,6 +190,7 @@ async function saveProgress() {
 async function main() {
   stopPolling();
   subject = null; lessonFile = null; lesson = null;
+  document.getElementById("progress-rail").innerHTML = "";
   document.getElementById("title").textContent = "Kalilmod";
   const subjects = await (await fetch("/api/subjects")).json();
   if (subjects.length === 0) { $app.textContent = "No subjects found in subjects/."; return; }
@@ -234,6 +262,44 @@ function renderLesson() {
   $app.appendChild(toolbar);
   renderMath($app);
   renderGraphs();
+  updateProgressRail();
+}
+
+// One dot per content part (explanation/link/video/graph); quizzes are the
+// tests between them. The "current" part is the last content block at or before
+// the current position; everything before it is passed.
+function blockTitle(b) {
+  if (b.title) return b.title;
+  if (b.type === "explanation" && b.markdown) {
+    const m = b.markdown.match(/^#{1,6}\s+(.+)$/m);
+    if (m) return m[1].replace(/[*_`$]/g, "");
+  }
+  return null;
+}
+
+function updateProgressRail() {
+  const rail = document.getElementById("progress-rail");
+  rail.innerHTML = "";
+  const contentTypes = { explanation: 1, link: 1, video: 1, graph: 1 };
+  const contentIdx = [];
+  lesson.blocks.forEach((b, i) => { if (contentTypes[b.type]) contentIdx.push(i); });
+  if (contentIdx.length < 2) return; // too small to bother
+  const complete = state.currentBlock >= lesson.blocks.length;
+  let currentPart = 0;
+  contentIdx.forEach((bi, k) => { if (bi <= state.currentBlock) currentPart = k; });
+  contentIdx.forEach((bi, k) => {
+    const dot = el("span", "dot");
+    if (complete || k < currentPart) dot.classList.add("passed");
+    else if (k === currentPart) dot.classList.add("current");
+    dot.title = (k + 1) + ". " + (blockTitle(lesson.blocks[bi]) || "Part " + (k + 1));
+    if (bi <= state.currentBlock) {
+      dot.onclick = () => {
+        const t = document.querySelector(`[data-index="${bi}"]`);
+        if (t) t.scrollIntoView({ behavior: "smooth", block: "start" });
+      };
+    }
+    rail.appendChild(dot);
+  });
 }
 
 // Plotly graphs are declarative: a block carries Plotly `data` and `layout`
@@ -325,6 +391,15 @@ function continueButton() {
   return btn;
 }
 
+// The orienting "lead" sentence goes in its own callout, placed just after the
+// block's title heading (or at the top if there's none).
+function insertLead(div, lead) {
+  const box = el("div", "lead", marked.parseInline(lead));
+  const heading = div.querySelector("h1, h2, h3, h4, h5, h6");
+  if (heading && heading.parentNode === div) heading.after(box);
+  else div.insertBefore(box, div.firstChild);
+}
+
 function renderBlock(block, index) {
   const div = el("div", "block " + block.type);
   div.dataset.index = index;
@@ -332,6 +407,7 @@ function renderBlock(block, index) {
 
   if (block.type === "explanation") {
     div.innerHTML = marked.parse(block.markdown);
+    if (block.lead) insertLead(div, block.lead);
     if (isCurrent) div.appendChild(continueButton());
   } else if (block.type === "link") {
     div.innerHTML = `<a href="${block.url}" target="_blank">${block.title}</a><p>${block.why || ""}</p>`;

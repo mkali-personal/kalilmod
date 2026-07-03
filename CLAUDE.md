@@ -117,7 +117,7 @@ Block types:
 
 | Type | Fields | Status |
 |---|---|---|
-| `explanation` | `markdown` (Markdown with LaTeX via `$...$` / `$$...$$`) | v1 |
+| `explanation` | `markdown` (Markdown with LaTeX via `$...$` / `$$...$$`), optional `lead` (orienting sentence, rendered as a callout above the content) | v1 |
 | `link` | `url`, `title`, `why` (why/what to read) | v1 |
 | `video` | `url`, `title`, `focus` (what to focus on). Some owners (esp. music labels) disable embedding — the GUI shows a "watch on YouTube" fallback link, but the teacher should prefer videos that allow embedded playback | v1 |
 | `quiz-choice` | `question`, `options[]`, `answer` (correct index), `hints[]` (shown in order on wrong attempts) | v1 |

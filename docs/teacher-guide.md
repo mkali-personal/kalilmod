@@ -27,7 +27,7 @@ A lesson is valid JSON:
 
 Block types (see `CLAUDE.md` for the full field table and a worked example):
 
-- `explanation` — `markdown` field; Markdown with LaTeX (`$...$` inline, `$$...$$` display). Keep each block short: one idea per block.
+- `explanation` — `markdown` field (Markdown with LaTeX: `$...$` inline, `$$...$$` display) plus an optional **`lead`** field (the orienting sentence, shown as a callout above the content — see Step format below). Keep each block short: one idea per block.
 - `link` — `url`, `title`, `why`. External reading (e.g. Wikipedia).
 - `video` — `url`, `title`, `focus`. YouTube videos embed as players. **Prefer videos that allow embedding** (music-label videos often don't; the GUI shows a fallback link, but embedded is better).
 - `quiz-choice` — `question`, `options[]` (2–5), `answer` (index of the correct option), `hints[]`. The GUI reveals one hint per wrong attempt; when hints run out, a "Show answer" button appears. Author 1–3 hints that progressively narrow toward the answer without stating it.
@@ -59,14 +59,14 @@ Block types (see `CLAUDE.md` for the full field table and a worked example):
 
 **Math renders everywhere via KaTeX — always use `$` delimiters.** Every visible text field is passed through KaTeX: not just `explanation.markdown`, but also quiz `question`, every entry in `options[]` and `hints[]`, and graph `title`/`caption`. Wrap all math in `$...$` (inline) or `$$...$$` (display). **Do not write math as raw Unicode** (e.g. `ψ_k(r)`, `e^{ik·r}`, `u_k(r + R)`): without `$` delimiters KaTeX renders nothing and the student sees literal text like `e^{ik·r}`. Write `$\psi_{\mathbf{k}}(\mathbf{r})$`, `$e^{i\mathbf{k}\cdot\mathbf{r}}$`, `$u_{\mathbf{k}}(\mathbf{r}+\mathbf{R})$` instead. This is the single most common authoring mistake — check every option and hint, not only the explanations.
 
-**Only `explanation.markdown` is Markdown.** Every other text field — quiz `question`, `options[]`, `hints[]`, link `title`/`why`, video `title`/`focus`, graph `title`/`caption` — is rendered as **plain text + KaTeX**, not Markdown. So `**bold**` or `*italics*` in those fields shows up as literal asterisks (`**like this**`). Math still works everywhere (KaTeX runs on all fields), but for emphasis outside `explanation.markdown`, rephrase instead of using Markdown. (KaTeX is the exception to "plain text": `$...$` is honored in every field.)
+**Markdown works in `explanation.markdown` (full) and `explanation.lead` (inline only — bold/italics/code).** Every other text field — quiz `question`, `options[]`, `hints[]`, link `title`/`why`, video `title`/`focus`, graph `title`/`caption` — is rendered as **plain text + KaTeX**, not Markdown. So `**bold**` or `*italics*` in those fields shows up as literal asterisks (`**like this**`). Math still works everywhere (KaTeX runs on all fields), but for emphasis outside `explanation.markdown`, rephrase instead of using Markdown. (KaTeX is the exception to "plain text": `$...$` is honored in every field.)
 
 Pedagogical obligations (non-negotiable):
 
 - **Step format.** Build each teaching step as **title → orienting lead → content → question(s)**:
   1. **Title** — a short Markdown heading (`### ...`) naming the idea, when you're starting a new point. Skip it for a paragraph that merely continues the previous one; a title on *every* micro-paragraph feels mechanical.
-  2. **Orienting lead (1–2 sentences)** — *before* the content, tell the student what's coming and what to pay attention to, phrased as a lens: e.g. "As you read, watch how the crystal's periodicity constrains the *envelope* function." It primes attention. Two hard rules: it must **not** state the answer, and it must **not** just paraphrase the upcoming question — that recreates the mechanical "watch for X = the question" pattern we're replacing. If a paragraph has no genuinely subtle point, omit the lead.
-  3. **Content** — the explanation prose/equations. Title + lead + content normally live in **one `explanation` block** (they read as one card). For a `link`/`video`, put the title and lead in its `title` and `why`/`focus` fields; for a `graph`, use `title`/`caption`.
+  2. **Orienting lead (1–2 sentences)** — put it in the explanation block's **`lead` field** (the GUI renders it as a highlighted callout above the content). *Before* the content, tell the student what's coming and what to pay attention to, phrased as a lens: e.g. "As you read, watch how the crystal's periodicity constrains the *envelope* function." It primes attention. Two hard rules: it must **not** state the answer, and it must **not** just paraphrase the upcoming question — that recreates the mechanical "watch for X = the question" pattern we're replacing. If a paragraph has no genuinely subtle point, omit the `lead`.
+  3. **Content** — the explanation prose/equations, in the `markdown` field (with the `### title` heading at its top). Title + `lead` + content live in **one `explanation` block** (they read as one card). For a `link`/`video`, put the lead in its `why`/`focus` field; for a `graph`, use `caption`.
   4. **Question(s)** — one or more `quiz-choice` blocks testing what was just taught.
 - **Multiple questions per content block are encouraged.** You may follow one content block with several `quiz-choice` blocks — the GUI reveals and gates them one at a time. Use this when a paragraph holds more than one testable idea, or to probe the same idea twice (recall, then apply it to a new case). Prefer depth over a single shallow check.
 - **Frequent alternation** stays the core rhythm: never let the student read or watch several blocks with nothing to *do* — no more than 2–3 non-quiz blocks before a quiz.
@@ -75,7 +75,8 @@ Worked example of one step (note the lead orients without giving the answer, and
 
 ```json
 { "type": "explanation",
-  "markdown": "### The Bloch envelope\n\nAs you read, pay attention to the constraint the crystal's periodicity places on the *envelope* function — not on the plane-wave factor.\n\nBloch's theorem writes every crystal eigenstate as $\\psi_{\\mathbf{k}}(\\mathbf{r}) = e^{i\\mathbf{k}\\cdot\\mathbf{r}}\\, u_{\\mathbf{k}}(\\mathbf{r})$: a plane wave modulating a function $u_{\\mathbf{k}}(\\mathbf{r})$ that carries the atomic-scale detail of the potential." },
+  "lead": "As you read, pay attention to the constraint the crystal's periodicity places on the *envelope* function — not on the plane-wave factor.",
+  "markdown": "### The Bloch envelope\n\nBloch's theorem writes every crystal eigenstate as $\\psi_{\\mathbf{k}}(\\mathbf{r}) = e^{i\\mathbf{k}\\cdot\\mathbf{r}}\\, u_{\\mathbf{k}}(\\mathbf{r})$: a plane wave modulating a function $u_{\\mathbf{k}}(\\mathbf{r})$ that carries the atomic-scale detail of the potential." },
 { "type": "quiz-choice",
   "question": "What property must $u_{\\mathbf{k}}(\\mathbf{r})$ satisfy?",
   "options": [

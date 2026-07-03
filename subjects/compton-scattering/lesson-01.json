@@ -5,7 +5,8 @@
   "blocks": [
     {
       "type": "explanation",
-      "markdown": "### What Compton scattering is\n\nAs you read, note **which two objects collide** and **what happens to the photon's energy** — the next question checks both.\n\nIn **Compton scattering**, an X-ray or gamma-ray photon collides with a nearly-free charged particle — in practice an electron — and hands over part of its energy. Because the photon loses energy, it emerges with a *longer* wavelength. This was Arthur Compton's 1923 evidence that light carries particle-like momentum, not just wave energy."
+      "lead": "As you read, note *which two objects collide* and *what happens to the photon's energy* — the next question checks both.",
+      "markdown": "### What Compton scattering is\n\nIn **Compton scattering**, an X-ray or gamma-ray photon collides with a nearly-free charged particle — in practice an electron — and hands over part of its energy. Because the photon loses energy, it emerges with a *longer* wavelength. This was Arthur Compton's 1923 evidence that light carries particle-like momentum, not just wave energy."
     },
     {
       "type": "quiz-choice",
@@ -24,7 +25,8 @@
     },
     {
       "type": "explanation",
-      "markdown": "### The wavelength shift\n\nWatch what the shift $\\Delta\\lambda$ depends on — and, just as importantly, what it does *not* depend on.\n\nThe change in wavelength depends only on the scattering angle $\\theta$:\n\n$$\\Delta\\lambda = \\frac{h}{m_e c}\\,(1 - \\cos\\theta)$$\n\nThe constant $\\frac{h}{m_e c} \\approx 2.43\\,\\mathrm{pm}$ is the *Compton wavelength* of the electron — the natural length scale of the effect. Notice the photon's initial wavelength does not appear on the right-hand side."
+      "lead": "Watch what the shift $\\Delta\\lambda$ depends on — and, just as importantly, what it does *not* depend on.",
+      "markdown": "### The wavelength shift\n\nThe change in wavelength depends only on the scattering angle $\\theta$:\n\n$$\\Delta\\lambda = \\frac{h}{m_e c}\\,(1 - \\cos\\theta)$$\n\nThe constant $\\frac{h}{m_e c} \\approx 2.43\\,\\mathrm{pm}$ is the *Compton wavelength* of the electron — the natural length scale of the effect. Notice the photon's initial wavelength does not appear on the right-hand side."
     },
     {
       "type": "quiz-choice",
