@@ -19,6 +19,7 @@ API:
   POST /api/progress?subject=X             -> overwrite progress.json with body
   GET  /api/reviews?subject=X              -> reviews.json content (or {})   (Claude-owned, read-only here)
   GET  /api/wait?since=N&timeout=S         -> long-poll: blocks until an event past N, then returns
+  GET  /api/teacher                        -> {"online": bool, "waiters": N}: is a live teacher listening?
   POST /api/notify                         -> GUI fires an event to wake the live teacher session
 
 The wait/notify pair is the "wake the teacher" mechanism: the GUI fires /api/notify,
@@ -31,6 +32,7 @@ active {subject, lesson}, so the live teacher loop can scope to the subject in u
 import argparse
 import json
 import os
+import socket
 import threading
 import time
 import webbrowser
@@ -56,6 +58,7 @@ MODE = "dynamic"  # set from --static at startup
 # for the current sequence number; nothing about the loop is held in context.
 _events = []                       # list of event dicts, append-only
 _events_cv = threading.Condition() # guards _events and signals waiters
+_waiters = 0                       # active /api/wait long-polls == teachers currently listening
 
 
 def safe_subject_path(subject, filename):
@@ -91,6 +94,9 @@ class Handler(BaseHTTPRequestHandler):
             self.send_subject_file(query, "reviews.json", default={})
         elif url.path == "/api/wait":
             self.wait_for_event(query)
+        elif url.path == "/api/teacher":
+            # Is a live teacher currently listening? (>=1 active /api/wait long-poll)
+            self._send_json(200, {"online": _waiters > 0, "waiters": _waiters})
         else:
             self.send_static(url.path)
 
@@ -150,10 +156,32 @@ class Handler(BaseHTTPRequestHandler):
         with open(path, "rb") as f:
             self._send_bytes(200, f.read(), "application/json")
 
+    def _client_alive(self):
+        """Peek at the client socket without consuming data: is the connection
+        still open? A killed background curl closes its end, which we detect so
+        it stops counting as a live teacher (see _waiters / /api/teacher)."""
+        sock = self.connection
+        try:
+            sock.setblocking(False)
+            try:
+                return sock.recv(1, socket.MSG_PEEK) != b""  # b"" == peer closed
+            except (BlockingIOError, InterruptedError):
+                return True  # no data pending, but the connection is open
+            except OSError:
+                return False
+        finally:
+            try:
+                sock.setblocking(True)
+            except OSError:
+                pass
+
     def wait_for_event(self, query):
         """Long-poll: block until an event past `since` exists, then return and
         let the caller (a backgrounded curl) exit. Returns on timeout too, so an
-        idle listener re-arms harmlessly instead of hanging forever."""
+        idle listener re-arms harmlessly instead of hanging forever. While parked
+        here the request counts as a live teacher (_waiters), and we re-check the
+        client every 15s so a killed listener stops counting within seconds."""
+        global _waiters
         try:
             since = int(query.get("since", ["0"])[0])
             timeout = float(query.get("timeout", ["300"])[0])
@@ -162,14 +190,22 @@ class Handler(BaseHTTPRequestHandler):
             return
         deadline = time.monotonic() + timeout
         with _events_cv:
-            while len(_events) <= since:
-                remaining = deadline - time.monotonic()
-                if remaining <= 0:
-                    self._send_json(200, {"event": False, "seq": len(_events)})
-                    return
-                _events_cv.wait(remaining)
-            self._send_json(200, {"event": True, "seq": len(_events),
-                                  "events": _events[since:]})
+            _waiters += 1
+        try:
+            with _events_cv:
+                while len(_events) <= since:
+                    remaining = deadline - time.monotonic()
+                    if remaining <= 0:
+                        self._send_json(200, {"event": False, "seq": len(_events)})
+                        return
+                    _events_cv.wait(min(remaining, 15))
+                    if len(_events) <= since and not self._client_alive():
+                        return  # client vanished; drop silently, stop counting
+                self._send_json(200, {"event": True, "seq": len(_events),
+                                      "events": _events[since:]})
+        finally:
+            with _events_cv:
+                _waiters -= 1
 
     def notify_event(self):
         """The GUI fires this to wake the teacher. Body is an optional event

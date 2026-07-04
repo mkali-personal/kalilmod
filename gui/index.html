@@ -38,6 +38,24 @@
   h1 { font-size: 1.7rem; margin: 0; letter-spacing: -0.01em; }
   .tagline { color: var(--muted); margin: .2em 0 0; font-size: .95rem; }
 
+  /* Teacher-presence badge: live indicator of whether a /teach-me session is
+     actually listening, so the student never waits on a review into the void. */
+  #teacher-badge {
+    position: fixed; top: 14px; right: 16px; z-index: 20; display: none;
+    align-items: center; gap: .5em; font-size: .82rem; font-weight: 500;
+    padding: .4em .8em; border-radius: 999px; border: 1px solid var(--border);
+    background: var(--surface); box-shadow: var(--shadow); color: var(--muted);
+  }
+  #teacher-badge .tb-dot { width: .6em; height: .6em; border-radius: 50%; background: var(--muted); flex: none; }
+  #teacher-badge.online { color: var(--good); border-color: var(--good); }
+  #teacher-badge.online .tb-dot { background: var(--good); box-shadow: 0 0 0 3px var(--good-soft); }
+  #teacher-badge.working .tb-dot { background: var(--hint-border); }
+  #teacher-badge.offline { color: var(--bad); border-color: var(--bad); }
+  #teacher-badge.offline .tb-dot { background: var(--bad); }
+  /* Honest note appended to an "awaiting the teacher" message when none is connected. */
+  .tb-note { margin-top: .6em; color: var(--bad); font-weight: 500; font-size: .92em; }
+  .tb-note code { background: var(--bad-soft); }
+
   .block {
     background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
     padding: 1.3em 1.5em; margin: 1.1em 0; box-shadow: var(--shadow);
@@ -152,6 +170,7 @@
 </style>
 </head>
 <body>
+<div id="teacher-badge" title="Whether a live /teach-me session is currently listening"></div>
 <header>
   <h1 id="title">Kalilmod</h1>
   <p class="tagline">קלילמוד — learn by doing, one small step at a time.</p>
@@ -172,6 +191,10 @@ let reviews = {};         // reviews.json for the subject (Claude-owned, polled 
 let pollTimer = null;
 let lastLessonJSON = "";  // to detect live lesson edits (feedback-driven)
 let lastReviewsJSON = ""; // to detect newly-arrived free-text reviews
+let teacherTimer = null;          // polls /api/teacher for listener presence
+let teacherOfflineSince = null;   // when we first saw "no listener" (drives the grace period)
+let teacherState = "unknown";     // "online" | "working" | "offline" | "down" | "unknown"
+const TEACHER_GRACE_MS = 45000;   // a teacher busy authoring briefly leaves /api/wait — don't cry "offline" instantly
 
 function el(tag, cls, html) {
   const e = document.createElement(tag);
@@ -261,7 +284,7 @@ function renderLesson() {
       // the lesson itself — isn't authored yet. Wake the teacher and wait; the
       // poll reveals whatever it appends. Keyed on blocks.length so each new
       // round of questions re-notifies (supports rough- then fine-grained rounds).
-      $app.appendChild(el("div", "block reveal", mode === "dynamic"
+      $app.appendChild(el("div", "block reveal awaiting-teacher", mode === "dynamic"
         ? "<b>Thanks!</b> Your teacher is looking at your answers — the next step appears here in a moment, no refresh needed."
         : "<b>Thanks!</b> (Static mode has no live teacher to build a lesson from these answers.)"));
       if (mode === "dynamic" && state.assessmentNotifiedLen !== lesson.blocks.length) {
@@ -280,7 +303,7 @@ function renderLesson() {
         const done = mode === "dynamic"
           ? "<b>Lesson complete! 🎉</b> Your teacher is preparing the next lesson — it'll appear here in a moment."
           : "<b>Lesson complete! 🎉</b> You've reached the end of the authored lessons.";
-        $app.appendChild(el("div", "block reveal", done));
+        $app.appendChild(el("div", "block reveal" + (mode === "dynamic" ? " awaiting-teacher" : ""), done));
         // Tell a live teacher the student is out of content — once per completion.
         if (mode === "dynamic" && !state.notifiedComplete) {
           state.notifiedComplete = true;
@@ -308,6 +331,7 @@ function renderLesson() {
   renderMath($app);
   renderGraphs();
   updateProgressRail();
+  reflectTeacherOnAwaiting();  // annotate any awaiting-teacher message with the last known presence
 }
 
 // One dot per content part (explanation/link/video/graph); quizzes are the
@@ -746,7 +770,7 @@ function renderFree(div, block, index) {
     div.appendChild(el("div", "review " + cls,
       "<b>Teacher review (" + review.verdict + "):</b> " + review.comment));
   } else if (mode === "dynamic") {
-    div.appendChild(el("div", "hint",
+    div.appendChild(el("div", "hint awaiting-teacher",
       "Answer submitted — your teacher is reviewing it. The verdict will appear here automatically."));
   }
 
@@ -784,6 +808,61 @@ async function pollUpdates() {
   } catch (e) { /* transient; try again next tick */ }
 }
 
+// --- Teacher-presence badge: is a live /teach-me session actually listening? ---
+// The server counts active /api/wait long-polls (_waiters) and exposes /api/teacher.
+// We poll it and show a live badge, so the student never waits on a review that no
+// one will ever write. A short grace period covers the moments a busy teacher is
+// authoring (and thus momentarily not parked in /api/wait).
+function startTeacherPolling() {
+  if (mode !== "dynamic") return;
+  stopTeacherPolling();
+  pollTeacher();
+  teacherTimer = setInterval(pollTeacher, 3000);
+}
+function stopTeacherPolling() { if (teacherTimer) { clearInterval(teacherTimer); teacherTimer = null; } }
+
+function setBadge(state, text) {
+  teacherState = state;
+  const badge = document.getElementById("teacher-badge");
+  badge.style.display = "inline-flex";
+  badge.className = state;
+  badge.innerHTML = '<span class="tb-dot"></span>' + text;
+  reflectTeacherOnAwaiting();
+}
+
+async function pollTeacher() {
+  const badge = document.getElementById("teacher-badge");
+  if (mode !== "dynamic") { badge.style.display = "none"; return; }
+  let online = false, serverDown = false;
+  try {
+    online = !!(await (await fetch("/api/teacher")).json()).online;
+  } catch (e) { serverDown = true; }
+
+  if (serverDown) { teacherOfflineSince = null; setBadge("down", "Server not running"); return; }
+  if (online)     { teacherOfflineSince = null; setBadge("online", "Teacher connected"); return; }
+  // No listener right now — could be a teacher mid-authoring, so hold a grace period.
+  if (teacherOfflineSince === null) teacherOfflineSince = Date.now();
+  if (Date.now() - teacherOfflineSince < TEACHER_GRACE_MS) setBadge("working", "Teacher working…");
+  else setBadge("offline", "No teacher — run /teach-me");
+}
+
+// When we're sure no teacher is connected, tell the student on any "awaiting the
+// teacher" message so a killed/absent session doesn't read as an endless wait.
+function reflectTeacherOnAwaiting() {
+  const stalled = teacherState === "offline" || teacherState === "down";
+  document.querySelectorAll(".awaiting-teacher").forEach((elm) => {
+    let note = elm.querySelector(".tb-note");
+    if (stalled) {
+      if (!note) { note = el("div", "tb-note"); elm.appendChild(note); }
+      note.innerHTML = teacherState === "down"
+        ? "⚠️ The server isn't running, so nothing is listening. Restart it and run <code>/teach-me</code> to continue."
+        : "⚠️ No live teacher is connected, so this won't progress on its own. In your Claude Code terminal, run <code>/teach-me</code> to resume — your answers are saved.";
+    } else if (note) {
+      note.remove();
+    }
+  });
+}
+
 // --- Routing: the URL hash holds the open lesson so refresh (F5) restores it ---
 function route() {
   const params = new URLSearchParams(location.hash.slice(1));
@@ -799,6 +878,7 @@ function route() {
 async function boot() {
   try { mode = (await (await fetch("/api/mode")).json()).mode; } catch (e) { /* default dynamic */ }
   window.addEventListener("hashchange", route);
+  startTeacherPolling();  // dynamic mode only; badge shows whether a teacher is listening
   route();
 }
 boot();
