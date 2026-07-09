@@ -11,9 +11,11 @@ The creator of the repository is Michael Kali. "Kalilmod" sounds like the Hebrew
 Claude Code serves two roles in this repository:
 
 1. **Builder** — writes the tool itself (server, GUI viewer, docs) and documents it so future sessions can use it.
-2. **Teacher** — in future sessions, reads the content-creation instructions (`docs/teacher-guide.md`) and uses them to inject lesson content and orchestrate the learning process.
+2. **Teacher** — in future sessions, authors content and orchestrates the learning process. This has **two modes**, each with its own command and guide but the same infrastructure (GUI, server, block schema, live loop):
+   - **Teaching** (`/teach-me` → `docs/teacher-guide.md`): the session evaluates the student and *authors* the lesson content itself.
+   - **Guided reading** (`/read-with-me` → `docs/reading-guide.md`): the student supplies an existing source (paper, chapter, web page); the session *does not teach it* — it reads the actual source, then choreographs attention and tests comprehension. For advanced primary texts this avoids the LLM over-digesting or hallucinating the material.
 
-> **Current role: both.** The v1 tool works (server, viewer, sample subjects) and the teacher procedure is documented. If the user asks to **learn a subject**, act as Teacher: follow `docs/teacher-guide.md`. If the user asks to **develop the tool**, act as Builder.
+> **Current role: both.** The v1 tool works (server, viewer, sample subjects) and both teacher modes are documented. If the user asks to **learn a subject**, act as Teacher: follow `docs/teacher-guide.md`. If the user asks to **actively read a specific text**, follow `docs/reading-guide.md`. If the user asks to **develop the tool**, act as Builder.
 
 ## Architecture (v1)
 
@@ -60,13 +62,16 @@ Nothing in the lesson-file format or server needs to change for this upgrade; on
 ```
 serve.py                     # local server: serves the GUI + JSON API; --static flag; /api/mode
 gui/                         # static HTML/JS lesson viewer (one generic viewer for all subjects)
-.claude/commands/            # slash-command skill: teach-me (single entry point; evaluates, authors, launches, and runs the live loop)
-subjects/<topic>/            # one folder per subject
+.claude/commands/            # slash-command skills: teach-me (author a lesson) and read-with-me (guide a reading); each launches the server and runs the live loop
+subjects/<topic>/            # one folder per subject (both skills write here)
     lesson-01.json           # lesson files, numbered sequentially (tracked in git)
     lesson-02.json
-    progress.json            # GUI-owned per-user state: position, answers, feedback (git-ignored)
+    progress.json            # GUI-owned per-user state: position, answers, feedback, prefs (git-ignored)
     reviews.json             # Claude-owned: free-text verdicts, feedbackHandled (git-ignored)
-docs/teacher-guide.md        # content-injection instructions for future teacher sessions
+docs/teacher-guide.md        # content-authoring instructions for /teach-me sessions
+docs/reading-guide.md        # guided-reading instructions for /read-with-me sessions
+tools/pdf_pages.py           # read a PDF one page range at a time (poppler wrapper) for /read-with-me
+tools/validate_lesson.py     # classical JSON + block-schema check; run after authoring any lesson file
 CLAUDE.md                    # this file
 ```
 
@@ -124,9 +129,11 @@ Block types:
 | `video` | `url`, `title`, `focus` (what to focus on). Some owners (esp. music labels) disable embedding — the GUI shows a "watch on YouTube" fallback link, but the teacher should prefer videos that allow embedded playback | v1 |
 | `quiz-choice` | `question`, `options[]`, `answer` (correct index), `hints[]` (shown in order on wrong attempts) | v1 |
 | `graph` | `data`, `layout` (Plotly.js spec, verbatim), optional `title`, `caption`. Rendered client-side by Plotly (CDN), theme-aware, interactive | v1 |
-| `quiz-free` | `question` + hidden `reference`. Free-text/LaTeX answer. **Dynamic**: student submits, the live `/teach-me` loop evaluates it automatically (no API key needed). **Static**: student self-checks against `reference` | v1 |
-| `assess` | `question`, optional `options[]`. A pre-lesson **diagnostic** question — no right/wrong, no hints, no `reference`. `options` present → single-choice; absent → free text. Answers recorded in `progress.json` `assessment`; the live teacher reads them to gauge level and author the lesson. Used in *evaluation rounds* at the very start of a new subject (see Lesson flow rules) | v1 |
+| `quiz-free` | `question` + hidden `reference`. Free-text/LaTeX answer. **Dynamic**: student submits, the live loop evaluates it automatically (no API key needed). **Static**: student self-checks against `reference` | v1 |
+| `assess` | `question`, optional `options[]`. A pre-lesson **diagnostic** question — no right/wrong, no hints, no `reference`. `options` present → single-choice; absent → free text. Answers recorded in `progress.json` `assessment`; the live teacher reads them to gauge level and author the lesson. Used in *evaluation rounds* at the very start of a new subject (see Lesson flow rules). Only `/teach-me` uses `assess` — `/read-with-me` has no evaluation step | v1 |
 | `manim` | reserved — manim-rendered **animation** (not static graphs — use `graph` for those). Optional: used only if manim is already installed on the machine; never a hard dependency | deferred |
+
+**Question-type preference.** Before anything else, the GUI asks the student whether to include **free-text questions** or use **multiple-choice only**, and stores the choice in `progress.json` `prefs.freeText` (also in browser `localStorage`; changeable from the lesson toolbar). When it's off, the GUI **hides** free-text questions — `quiz-free`, and free-text `assess` (an `assess` with no `options`) — by advancing past them **without renumbering blocks** (indices, quiz state, and `reviews.json` keys stay aligned). This applies to both skills and to already-authored lessons. The authoring session reads `prefs.freeText` and prefers multiple-choice when it's off.
 
 **Anti-cheating is explicitly not a requirement.** The tool is for people who actually want to learn, so encoding correct answers client-side (in the JSON or HTML) is fine.
 
@@ -148,15 +155,18 @@ Decisions already made with the user — do not re-litigate them:
 - **v1 teacher = the interactive terminal Claude Code session**, not the Agent SDK. Reason: the Agent SDK requires a pay-per-token `ANTHROPIC_API_KEY`, while the terminal session runs on the existing Claude Code subscription at zero extra cost. The SDK remains the documented upgrade path.
 - **Free-text and evaluation now happen in the GUI** (superseding the original "defer free text to the terminal" decision). Once the wake mechanism existed, both the free-text lesson answers (`quiz-free`) and the initial knowledge evaluation (`assess` blocks) moved into the browser: the student answers there, the live teacher reads `progress.json` and responds. The evaluation runs as **1–3 rounds of `assess` questions** at the very start of a new subject — a rough round, then optionally finer rounds shaped by the answers — before the lesson is authored. The terminal is no longer used for interviewing.
 - **Structured JSON lesson files with typed blocks**, rendered by one generic viewer — rather than the teacher generating bespoke HTML per lesson. This keeps content generation cheap and the viewer testable.
+- **Authored lessons are validated by a deterministic script, not LLM self-review** (`tools/validate_lesson.py`): it parses the JSON and checks the block schema (valid `type`, required fields, `quiz-choice` `options`/`answer` in range). An LLM emits structurally-broken-but-parseable JSON exactly where it can't self-catch it, so both guides require running the checker after every write to a lesson file.
 - **Retry-with-hints gating** for wrong answers (see Lesson flow rules).
 - **Single lesson page with sequential reveal**, not a chat interface.
 - **Graphs use Plotly.js** (declarative JSON `data`/`layout`, rendered client-side from CDN). Chosen because the graph *is* JSON — it drops into the block schema with no build step — and because the teacher LLM, which authors blind (it never sees the rendered output), writes Plotly specs very reliably and they fail gracefully. Static custom figures could later use a pre-rendered matplotlib image; interactive exploration could later add a Desmos block. See the Plotly authoring rules in `docs/teacher-guide.md`.
 - **Manim is animation-only and strictly optional.** It is an author-time tool, never a runtime dependency: the viewer only plays a pre-rendered video, which needs no packages. The teacher uses manim *only if it is already installed* (checked at author time) and falls back to a `graph` or explanation otherwise — so the base install stays Python-stdlib-only. The block type is reserved so the schema won't churn.
 - **GUI styling**: a modern, elegant baseline is now in place (CSS-only, single file, no framework — automatic light/dark mode, card layout, styled quiz options, reveal animation). Keep future styling in the same lightweight, dependency-free spirit; no build step or frontend framework.
-- **Interaction is single-command** (`/teach-me` — `<topic>` to start, no-arg to resume), so the student never phrases instructions or juggles commands. Earlier iterations split this across `/tutor` and `/review-answer`; both were folded into `/teach-me` once the hands-free loop was proven — **do not reintroduce separate student commands.** The loop mechanism is described under "The hands-free loop" above; its file-based reconcile doubles as the manual fallback when the loop isn't running.
+- **One command per learning mode, each self-contained** — `/teach-me` (author a lesson) and `/read-with-me` (guide a reading of a supplied text). Within a mode the interaction is a *single* command (e.g. `/teach-me <topic>` to start, no-arg to resume), so the student never phrases instructions or juggles commands. Earlier iterations split the *teach* flow across `/tutor` and `/review-answer`; both were folded into `/teach-me` once the hands-free loop was proven — **do not reintroduce separate student commands within a mode.** Adding `/read-with-me` is not a violation: it's a distinct mode (the student supplies the source and it is *not* taught), with its own command + `docs/reading-guide.md`, deliberately kept independent of `/teach-me`. The loop mechanism is described under "The hands-free loop" above; its file-based reconcile doubles as the manual fallback when the loop isn't running.
+- **Guided-reading mode does not generate teaching content.** For advanced primary sources, an LLM re-explaining the material risks over-digesting or hallucinating subtly-wrong claims — the opposite of what a student refining their understanding needs. So `/read-with-me` treats the source as authoritative: it reads the *actual* text (PDFs one page range at a time via `tools/pdf_pages.py`, a poppler wrapper — never the whole book; `WebFetch` for URLs) and web-corroborates, then authors only **pointers + attention cues + comprehension questions**. It writes a real explanation only when the student explicitly asks. Reuses the whole infrastructure — no new block types. (PDF reading needs poppler installed; the helper fails with install instructions if it's absent, since there is no stdlib way to read a PDF.)
+- **Question-type preference is the student's, asked up front.** The GUI prompts (free-text vs. multiple-choice only) before anything else and hides free-text questions when opted out, index-stably (see "Question-type preference" under Lesson content format). The choice is mirrored into `progress.json` so the authoring session writes the right kind from the start.
 - **Free-text review runs on the live subscription session, not an API key** — the deliberate choice that keeps v1 zero-cost.
 - **Dynamic vs. static modes** exist so non-Claude LLMs can still generate/replay lessons (static self-checks free-text against a `reference`).
-- **File ownership is split** to avoid write races (GUI owns `progress.json`; Claude owns `reviews.json` + lessons); the GUI polls the Claude-owned files so updates appear without a refresh, and **F5 is safe** because the open lesson lives in the URL hash. Reviews carry `answeredTs` so a resubmission is detected rather than skipped and stale verdicts are hidden.
+- **File ownership is split** to avoid write races (GUI owns `progress.json`; Claude owns `reviews.json` + lessons); the GUI polls the Claude-owned files so updates appear without a refresh, and **F5 is safe** because the open lesson lives in the URL hash. Reviews carry `answeredTs` so a resubmission is detected rather than skipped and stale verdicts are hidden. The server writes `progress.json` **atomically** (temp file + `os.replace`, serialized by a lock) so two overlapping saves can't leave a half-written/corrupt file; the GUI also **tolerates** a missing/corrupt progress file (per-subject `try/catch`) rather than blanking the whole lesson picker.
 
 ## Current status & roadmap
 
@@ -166,5 +176,7 @@ Decisions already made with the user — do not re-litigate them:
 - **Phase 3 — graphs.** Done: `graph` block via Plotly.js (interactive, theme-aware, client-side).
 - **Phase 4 — free-text + sessions.** Done: `quiz-free` blocks evaluated live by the Claude session (no API key); dynamic/static modes; GUI live-polling (reviews and lesson edits appear without refresh); F5 restores position.
 - **Phase 4.5 — hands-free loop.** Done: `/teach-me` stays live and reacts to the browser itself, via the `/api/wait` + `/api/notify` bus and the harness's re-invoke-on-background-exit (see "The hands-free loop"). The single command absorbed the earlier `/tutor` and `/review-answer`. The GUI also shows a live teacher-presence badge (`/api/teacher`) so the student never waits on a review with no session listening.
+- **Phase 4.6 — question-type preference.** Done: the GUI asks free-text vs. multiple-choice-only up front (persisted in `localStorage`, changeable from the toolbar), hides free-text questions index-stably when opted out, and mirrors the choice into `progress.json` `prefs.freeText` so the authoring session prefers multiple-choice.
+- **Phase 4.7 — guided reading (`/read-with-me`).** Done: a second skill that actively reads an existing text instead of authoring content — reads the real source (PDF page ranges / URLs) and corroborates, then authors pointers + attention cues + comprehension questions on the same GUI, server, block schema, and live loop. Instructions in `docs/reading-guide.md`.
 - **Phase 5 — manim animations** (optional capability): render and embed manim animations as a block type, used only when manim is detected on the machine.
 - **Later — Agent SDK** (`claude-agent-sdk` + `ANTHROPIC_API_KEY`): a true always-on/background teacher with no interactive session kept open (see Further upgrade path).

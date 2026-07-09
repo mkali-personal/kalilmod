@@ -1,5 +1,8 @@
 .idea/
+__pycache__/
+*.pyc
 # Per-user learning state stays local; lessons themselves are tracked.
 subjects/**/progress.json
 subjects/**/reviews.json
+subjects/**/*.tmp
 .kalilmod-active.json

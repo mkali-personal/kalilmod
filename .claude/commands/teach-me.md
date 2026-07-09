@@ -31,8 +31,15 @@ answers, feedback, next lesson) with no further terminal commands from the stude
    `assess` blocks have no right/wrong and no `reference`; they just collect answers.
    Do **not** interview in the terminal. (On a resume where the current lesson exists and
    isn't finished, skip evaluation — just launch and go live.)
+   **Question-type preference:** from the first interaction on, `progress.json` carries
+   `prefs.freeText`. If it's `false`, the student wants **multiple-choice only** — author
+   single-choice `assess` and `quiz-choice` rather than free-text `assess`/`quiz-free`
+   (the GUI hides any free-text anyway). See `docs/teacher-guide.md`.
 
-4. **Launch the tool** in **dynamic** mode in the background: run `python serve.py`
+4. **Validate the lesson file, then launch.** After writing/appending, run
+   `python tools/validate_lesson.py subjects/<topic>/lesson-NN.json` and fix every
+   `ERROR` (it parses the JSON and checks the block schema — don't rely on eyeballing
+   your own JSON). Then launch in **dynamic** mode in the background: run `python serve.py`
    (dynamic is the default). The browser opens automatically at the lesson picker.
 
 ## Go live — the hands-free loop
@@ -79,6 +86,9 @@ state for the lesson is `state = progress["lesson-NN.json"]`:
     evaluation case above, not this one.)
   - Detect pending items by presence/`ts` — **do not run any shell command for the time**
     or scan other subjects. The GUI polls and updates **without a refresh**.
+  - **After any write to a lesson file here** (appending an assess round, authoring the
+    lesson, feedback edits, the next lesson), run `python tools/validate_lesson.py <file>`
+    and fix every `ERROR` before you re-arm — a malformed lesson breaks the viewer.
 
 **B. Learn the current sequence number.** Run (foreground)
 `curl -s "http://127.0.0.1:8000/api/wait?since=0&timeout=0"` and read the `seq` field

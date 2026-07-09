@@ -148,6 +148,19 @@
   .sc-status { color: var(--muted); font-size: .9em; white-space: nowrap; }
   .toolbar { margin-top: 1.5em; padding-top: 1.2em; border-top: 1px solid var(--border); }
 
+  /* First-run overlay: ask whether to include free-text (written) questions. */
+  .overlay {
+    position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,.45); padding: 1.2em;
+  }
+  .overlay-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 1.7em 1.9em; max-width: 470px; text-align: center;
+  }
+  .overlay-card h2 { margin: 0 0 .4em; }
+  .overlay-card p { color: var(--muted); font-size: .95em; margin: 0 0 1.1em; }
+  .overlay-card .btn { margin: .3em; }
+
   /* Progress rail: one dot per content part, down the left margin. */
   #progress-rail {
     position: fixed; left: 24px; top: 50%; transform: translateY(-50%);
@@ -195,6 +208,7 @@ let teacherTimer = null;          // polls /api/teacher for listener presence
 let teacherOfflineSince = null;   // when we first saw "no listener" (drives the grace period)
 let teacherState = "unknown";     // "online" | "working" | "offline" | "down" | "unknown"
 const TEACHER_GRACE_MS = 45000;   // a teacher busy authoring briefly leaves /api/wait — don't cry "offline" instantly
+let freeTextEnabled = true;       // show free-text (written) questions? student's choice, from localStorage
 
 function el(tag, cls, html) {
   const e = document.createElement(tag);
@@ -211,6 +225,7 @@ function renderMath(node) {
 
 async function saveProgress() {
   progress[lessonFile] = state;
+  progress.prefs = { freeText: freeTextEnabled };  // carried to the teacher (GUI still owns progress.json)
   await fetch("/api/progress?subject=" + encodeURIComponent(subject) + "&lesson=" + encodeURIComponent(lessonFile), {
     method: "POST", body: JSON.stringify(progress) });
 }
@@ -236,7 +251,10 @@ async function main() {
   $app.appendChild(el("h2", null, "Choose a lesson"));
   const list = el("div", "subject-list");
   for (const s of subjects) {
-    const prog = await (await fetch("/api/progress?subject=" + encodeURIComponent(s.subject))).json();
+    let prog = {};
+    // Never let one subject's missing/corrupt progress blank the whole picker.
+    try { prog = await (await fetch("/api/progress?subject=" + encodeURIComponent(s.subject))).json(); }
+    catch (e) { /* treat as not started */ }
     for (const l of s.lessons) {
       const st = prog[l];
       const status = !st ? "not started"
@@ -257,22 +275,49 @@ async function openLesson(subj, file) {
   if (location.hash.slice(1) !== h) location.hash = h;  // so F5 restores this lesson
   lesson = await (await fetch(`/api/lesson?subject=${encodeURIComponent(subj)}&lesson=${encodeURIComponent(file)}`)).json();
   lastLessonJSON = JSON.stringify(lesson);
-  progress = await (await fetch("/api/progress?subject=" + encodeURIComponent(subj))).json();
+  try { progress = await (await fetch("/api/progress?subject=" + encodeURIComponent(subj))).json(); }
+  catch (e) { progress = {}; }  // corrupt/missing progress → start fresh rather than fail to open
   const reviewsAll = await (await fetch("/api/reviews?subject=" + encodeURIComponent(subj))).json();
   reviews = reviewsAll;
   lastReviewsJSON = JSON.stringify(reviewsAll[file] || {});
   state = progress[lessonFile] || { currentBlock: 0, quiz: {} };
   state.totalBlocks = lesson.blocks.length;
   document.getElementById("title").textContent = lesson.title;
+  saveProgress();  // record prefs (and mark the active subject) as soon as the lesson opens
   startPolling();
   renderLesson();
+}
+
+// A free-text question the student opted out of (multiple-choice only): a
+// quiz-free block, or a free-text assess question (an assess block with no options).
+function blockHidden(b) {
+  return !freeTextEnabled && (b.type === "quiz-free" || (b.type === "assess" && !b.options));
 }
 
 function renderLesson() {
   $app.innerHTML = "";
   pendingGraphs = [];
+  // If the student chose multiple-choice only, advance past any free-text block
+  // the position currently rests on — without touching the block array, so every
+  // index (quiz state, reviews) stays aligned. A skipped assess still records an
+  // answer so the "evaluation round finished" detection keeps firing.
+  if (!freeTextEnabled) {
+    let advanced = false;
+    while (state.currentBlock < lesson.blocks.length && blockHidden(lesson.blocks[state.currentBlock])) {
+      const b = lesson.blocks[state.currentBlock];
+      if (b.type === "assess") {
+        state.assessment = state.assessment || {};
+        if (!state.assessment[state.currentBlock])
+          state.assessment[state.currentBlock] = { skipped: true, ts: new Date().toISOString() };
+      }
+      state.currentBlock++;
+      advanced = true;
+    }
+    if (advanced) saveProgress();
+  }
   const upto = Math.min(state.currentBlock, lesson.blocks.length - 1);
   for (let i = 0; i <= upto; i++) {
+    if (blockHidden(lesson.blocks[i])) continue;  // opted out of free-text — render nothing
     const node = renderBlock(lesson.blocks[i], i);
     if (i === upto && i > animatedThrough) { node.classList.add("reveal"); animatedThrough = i; }
     $app.appendChild(node);
@@ -325,8 +370,13 @@ function renderLesson() {
     saveProgress();
     renderLesson();
   };
+  const ftToggle = el("button", "btn ghost",
+    freeTextEnabled ? "Questions: incl. free-text" : "Questions: multiple-choice only");
+  ftToggle.title = "Toggle whether free-text (written) questions are shown";
+  ftToggle.onclick = () => { setFreeTextPref(!freeTextEnabled); saveProgress(); renderLesson(); };
   toolbar.appendChild(back);
   toolbar.appendChild(restart);
+  toolbar.appendChild(ftToggle);
   $app.appendChild(toolbar);
   renderMath($app);
   renderGraphs();
@@ -863,6 +913,35 @@ function reflectTeacherOnAwaiting() {
   });
 }
 
+// --- Question-type preference: free-text (written) questions, or multiple-choice only ---
+// Stored per-browser in localStorage; also mirrored into progress.json (prefs.freeText)
+// so the teaching/reading session authors the right kind of question in the first place.
+function loadFreeTextPref() {
+  const v = localStorage.getItem("kalilmod.freeText");
+  return v === null ? null : v === "on";
+}
+function setFreeTextPref(on) {
+  freeTextEnabled = on;
+  localStorage.setItem("kalilmod.freeText", on ? "on" : "off");
+}
+function askFreeTextPref() {
+  return new Promise((resolve) => {
+    const overlay = el("div", "overlay");
+    const card = el("div", "overlay-card",
+      "<h2>How do you want to be quizzed?</h2>" +
+      "<p>Free-text questions ask you to write an answer in your own words (reviewed live). " +
+      "Multiple-choice only keeps every question a pick-one — quicker, no writing.</p>");
+    const both = el("button", "btn primary", "Include free-text questions");
+    const mc = el("button", "btn ghost", "Multiple-choice only");
+    both.onclick = () => { setFreeTextPref(true); overlay.remove(); resolve(); };
+    mc.onclick = () => { setFreeTextPref(false); overlay.remove(); resolve(); };
+    card.appendChild(both);
+    card.appendChild(mc);
+    overlay.appendChild(card);
+    document.body.appendChild(overlay);
+  });
+}
+
 // --- Routing: the URL hash holds the open lesson so refresh (F5) restores it ---
 function route() {
   const params = new URLSearchParams(location.hash.slice(1));
@@ -877,6 +956,9 @@ function route() {
 
 async function boot() {
   try { mode = (await (await fetch("/api/mode")).json()).mode; } catch (e) { /* default dynamic */ }
+  const pref = loadFreeTextPref();
+  if (pref === null) await askFreeTextPref();  // before everything else: ask once, then remember
+  else freeTextEnabled = pref;
   window.addEventListener("hashchange", route);
   startTeacherPolling();  // dynamic mode only; badge shows whether a teacher is listening
   route();

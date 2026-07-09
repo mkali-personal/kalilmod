@@ -67,6 +67,39 @@ def safe_subject_path(subject, filename):
     return path
 
 
+_write_lock = threading.Lock()  # serialize file writes across the threaded server
+
+
+def atomic_write(path, text):
+    """Write text to path safely under concurrency. Because this server is
+    threaded, two progress POSTs for one subject can otherwise interleave and
+    leave a half-written / trailing-garbage file that no longer parses as JSON,
+    which then breaks the GUI that reads it. We serialize writes with a lock
+    (one writer at a time) and publish via os.replace (atomic on the same
+    filesystem) so a reader always sees one complete document.
+
+    On Windows, os.replace raises PermissionError if the destination is open
+    right then (a concurrent GET reader) -- so we retry briefly, and as a last
+    resort write in place rather than drop the update or crash the handler."""
+    with _write_lock:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(text)
+        for _ in range(10):
+            try:
+                os.replace(tmp, path)
+                return
+            except PermissionError:
+                time.sleep(0.02)  # a reader has it open (Windows); let go and retry
+        with open(path, "w", encoding="utf-8") as f:  # last resort: still publish the update
+            f.write(text)
+        try:
+            os.remove(tmp)
+        except OSError:
+            pass
+
+
 class Handler(BaseHTTPRequestHandler):
     def _send_json(self, code, obj):
         data = json.dumps(obj, ensure_ascii=False).encode("utf-8")
@@ -118,15 +151,13 @@ class Handler(BaseHTTPRequestHandler):
             return
         subj = query["subject"][0]
         path = safe_subject_path(subj, "progress.json")
-        with open(path, "w", encoding="utf-8") as f:
-            json.dump(progress, f, ensure_ascii=False, indent=2)
+        atomic_write(path, json.dumps(progress, ensure_ascii=False, indent=2))
         # Record the active subject/lesson so the live teacher loop can scope to it.
         active = {"subject": os.path.basename(subj)}
         lesson = query.get("lesson", [None])[0]
         if lesson:
             active["lesson"] = os.path.basename(lesson)
-        with open(os.path.join(ROOT, ".kalilmod-active.json"), "w", encoding="utf-8") as f:
-            json.dump(active, f)
+        atomic_write(os.path.join(ROOT, ".kalilmod-active.json"), json.dumps(active))
         self._send_json(200, {"ok": True})
 
     def list_subjects(self):

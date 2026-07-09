@@ -51,14 +51,14 @@ Block types (see `CLAUDE.md` for the full field table and a worked example):
   ```
 
   You author this **blind** (you never see the rendered chart), so keep it to well-trodden Plotly patterns you're confident about: `scatter` (lines/markers), `bar`, `heatmap`, etc. Compute the `x`/`y` arrays yourself and put the numbers in the JSON — do not rely on any expression evaluation. Guided reading applies to graphs too: tell the student what to notice in the plot (in the `caption` or the preceding block) and quiz it next. Use `graph` for **static/plotted** figures; animations are a separate (future) `manim` block.
-- `quiz-free` — a free-text / LaTeX answer. Fields: `question` and a **hidden `reference`** (a model answer). In a **dynamic** session the student submits and the live loop delivers it to you to evaluate (see below); in a **static** session the student self-checks against the `reference`. Always include a good `reference` so static users aren't stranded. Use `quiz-free` when a genuine explanation is more revealing than picking an option — but keep multiple-choice as the backbone (it needs no round-trip). Example:
+- `quiz-free` — a free-text / LaTeX answer. Fields: `question` and a **hidden `reference`** (a model answer). In a **dynamic** session the student submits and the live loop delivers it to you to evaluate (see below); in a **static** session the student self-checks against the `reference`. Always include a good `reference` so static users aren't stranded. Use `quiz-free` when a genuine explanation is more revealing than picking an option — but keep multiple-choice as the backbone (it needs no round-trip). **Respect the question-type preference:** if `progress.json` `prefs.freeText` is `false`, the student opted out of written questions — author `quiz-choice` instead of `quiz-free` (any free-text you write is hidden by the GUI anyway, and won't be reviewed). Example:
 
   ```json
   { "type": "quiz-free",
     "question": "In one or two sentences, why does $\\Delta\\lambda$ depend on the scattering angle but not on the photon's initial wavelength?",
     "reference": "Because the shift comes from photon–electron collision kinematics: conserving energy and momentum gives $\\Delta\\lambda = \\frac{h}{m_e c}(1-\\cos\\theta)$, whose right-hand side contains only constants and $\\theta$." }
   ```
-- `assess` — a **pre-lesson diagnostic** question (used only in the evaluation rounds at the start of a new subject, per "The teaching loop" above). Fields: `question` and optional `options[]`. With `options`, it's single-choice; without, it's free text. There is **no right/wrong, no hints, no `reference`** — it just records the student's answer in `progress.json` `assessment` for you to read. Keep them short and level-probing. Examples:
+- `assess` — a **pre-lesson diagnostic** question (used only in the evaluation rounds at the start of a new subject, per "The teaching loop" above). Fields: `question` and optional `options[]`. With `options`, it's single-choice; without, it's **free text** — so if `prefs.freeText` is `false`, prefer single-choice `assess` questions (free-text ones are hidden, and you'll get no answer to read). There is **no right/wrong, no hints, no `reference`** — it just records the student's answer in `progress.json` `assessment` for you to read. Keep them short and level-probing. Examples:
 
   ```json
   { "type": "assess", "question": "Have you worked with conservation of momentum in collisions?",
@@ -102,7 +102,13 @@ Worked example of one step (note the lead orients without giving the answer, and
 - **Quiz what was just taught**, at the level the interview revealed. Wrong-answer hints should teach, not just hint.
 - Aim for 5–10 blocks per lesson — small lessons keep the feedback loop tight.
 
-Validate before launching: `python -c "import json; json.load(open('subjects/<topic>/lesson-NN.json', encoding='utf-8'))"`.
+**Validate every time you write a lesson file — with the checker, not by eye.** After you create, append to, or edit `lesson-NN.json` (first assess round, later rounds, the lesson itself, feedback-driven edits, the next lesson), run:
+
+```
+python tools/validate_lesson.py subjects/<topic>/lesson-NN.json
+```
+
+It parses the JSON with a real parser and checks the block schema (valid `type`, required fields, `quiz-choice` `options`/`answer` in range, etc.). Fix every `ERROR` before the student sees the file; exit code 0 means it's safe to launch. Do not skip this in favor of re-reading your own JSON — an LLM misses exactly the structural mistakes the checker catches.
 
 ## Reading progress
 
@@ -124,6 +130,7 @@ Validate before launching: `python -c "import json; json.load(open('subjects/<to
 }
 ```
 
+- `prefs.freeText` (top-level, alongside the per-lesson entries) is the student's question-type choice: `false` means they want **multiple-choice only** — author `quiz-choice`/single-choice `assess` rather than `quiz-free`/free-text (see the block rules above). Absent on the very first round (authored before they open the browser) — default to your usual mix; it's set from the first interaction on.
 - `currentBlock >= totalBlocks` → lesson completed.
 - Keys of `quiz` are block indices. `retries` counts wrong attempts; `revealed: true` means the student gave up and saw the answer. `order` is the GUI's shuffled display order — you can ignore it.
 - Adapt the next lesson accordingly: a question passed with 0 retries → move on; passed with several retries → briefly reinforce; `revealed` → re-teach that concept from a different angle and quiz it again before introducing new material.
