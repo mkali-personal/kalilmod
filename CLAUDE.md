@@ -72,6 +72,7 @@ docs/teacher-guide.md        # content-authoring instructions for /teach-me sess
 docs/reading-guide.md        # guided-reading instructions for /read-with-me sessions
 tools/pdf_pages.py           # read a PDF one page range at a time (poppler wrapper) for /read-with-me
 tools/validate_lesson.py     # classical JSON + block-schema check; run after authoring any lesson file
+tools/build_bundle.py        # package a subject into a self-contained static share bundle
 CLAUDE.md                    # this file
 ```
 
@@ -165,7 +166,7 @@ Decisions already made with the user — do not re-litigate them:
 - **Guided-reading mode does not generate teaching content.** For advanced primary sources, an LLM re-explaining the material risks over-digesting or hallucinating subtly-wrong claims — the opposite of what a student refining their understanding needs. So `/read-with-me` treats the source as authoritative: it reads the *actual* text (PDFs one page range at a time via `tools/pdf_pages.py`, a poppler wrapper — never the whole book; `WebFetch` for URLs) and web-corroborates, then authors only **pointers + attention cues + comprehension questions**. It writes a real explanation only when the student explicitly asks. Reuses the whole infrastructure — no new block types. (PDF reading needs poppler installed; the helper fails with install instructions if it's absent, since there is no stdlib way to read a PDF.)
 - **Question-type preference is the student's, asked up front.** The GUI prompts (free-text vs. multiple-choice only) before anything else and hides free-text questions when opted out, index-stably (see "Question-type preference" under Lesson content format). The choice is mirrored into `progress.json` so the authoring session writes the right kind from the start.
 - **Free-text review runs on the live subscription session, not an API key** — the deliberate choice that keeps v1 zero-cost.
-- **Dynamic vs. static modes** exist so non-Claude LLMs can still generate/replay lessons (static self-checks free-text against a `reference`).
+- **Dynamic vs. static modes** exist so non-Claude LLMs can still generate/replay lessons (static self-checks free-text against a `reference`). Static mode also **hides `assess` diagnostics** (there's no teacher to read them, so they're meaningless), and `tools/build_bundle.py` packages a subject — server, viewer, lesson files, no per-user state — into a folder others can run offline with `python serve.py --static`.
 - **File ownership is split** to avoid write races (GUI owns `progress.json`; Claude owns `reviews.json` + lessons); the GUI polls the Claude-owned files so updates appear without a refresh, and **F5 is safe** because the open lesson lives in the URL hash. Reviews carry `answeredTs` so a resubmission is detected rather than skipped and stale verdicts are hidden. The server writes `progress.json` **atomically** (temp file + `os.replace`, serialized by a lock) so two overlapping saves can't leave a half-written/corrupt file; the GUI also **tolerates** a missing/corrupt progress file (per-subject `try/catch`) rather than blanking the whole lesson picker.
 
 ## Current status & roadmap

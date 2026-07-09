@@ -288,20 +288,24 @@ async function openLesson(subj, file) {
   renderLesson();
 }
 
-// A free-text question the student opted out of (multiple-choice only): a
-// quiz-free block, or a free-text assess question (an assess block with no options).
+// Should this block be hidden (skipped) in the current mode/preference?
+//  - In static mode, ALL assess blocks are hidden: they're pre-lesson diagnostics
+//    for a live teacher, and there is none, so they're meaningless.
+//  - When the student opted out of free-text, quiz-free and free-text assess
+//    questions are hidden.
 function blockHidden(b) {
+  if (mode === "static" && b.type === "assess") return true;
   return !freeTextEnabled && (b.type === "quiz-free" || (b.type === "assess" && !b.options));
 }
 
 function renderLesson() {
   $app.innerHTML = "";
   pendingGraphs = [];
-  // If the student chose multiple-choice only, advance past any free-text block
-  // the position currently rests on — without touching the block array, so every
+  // Advance past any block hidden in this mode/preference (free-text opt-out, or
+  // assess blocks in static mode) — without touching the block array, so every
   // index (quiz state, reviews) stays aligned. A skipped assess still records an
   // answer so the "evaluation round finished" detection keeps firing.
-  if (!freeTextEnabled) {
+  {
     let advanced = false;
     while (state.currentBlock < lesson.blocks.length && blockHidden(lesson.blocks[state.currentBlock])) {
       const b = lesson.blocks[state.currentBlock];

@@ -47,7 +47,18 @@ If you don't have Claude Code, another LLM can still generate lesson files (it r
 python serve.py --static
 ```
 
-The browser opens at the lesson picker; free-text questions let you write an answer and then reveal a reference answer to self-check. `--port N` and `--no-browser` flags are also available. (Running `python serve.py` with no flag is dynamic mode, which assumes a live Claude session for reviews.)
+The browser opens at the lesson picker; free-text questions let you write an answer and then reveal a reference answer to self-check. Pre-lesson "about you" diagnostic (`assess`) questions are hidden in static mode — they only mean something to a live teacher. `--port N` and `--no-browser` flags are also available. (Running `python serve.py` with no flag is dynamic mode, which assumes a live Claude session for reviews.)
+
+## Share a lesson (static bundle)
+
+To hand a lesson to other people to study on their own — no Claude, no setup beyond Python — build a self-contained bundle:
+
+```
+python tools/build_bundle.py <subject>          # e.g. how-the-ribosome-works
+python tools/build_bundle.py <subject> --zip     # also produce a .zip to send
+```
+
+This writes `dist/<subject>-static/` containing the server, the viewer, and the lesson files (but **not** your personal progress). Send that folder (or the zip); the recipient installs Python 3 and runs `python serve.py --static` inside it (or double-clicks `run-static.bat` / `run-static.sh`), then picks the lesson. A browser with internet is required (the viewer loads its renderers from CDNs). You can bundle several subjects at once by naming more than one. Note: a `/read-with-me` lesson points at an external source — shareable if it's a URL; if it points at a local PDF, include that file too.
 
 ## Trying the mechanisms
 
