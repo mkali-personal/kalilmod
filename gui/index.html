@@ -208,7 +208,7 @@ let teacherTimer = null;          // polls /api/teacher for listener presence
 let teacherOfflineSince = null;   // when we first saw "no listener" (drives the grace period)
 let teacherState = "unknown";     // "online" | "working" | "offline" | "down" | "unknown"
 const TEACHER_GRACE_MS = 45000;   // a teacher busy authoring briefly leaves /api/wait — don't cry "offline" instantly
-let freeTextEnabled = true;       // show free-text (written) questions? student's choice, from localStorage
+let freeTextEnabled = true;       // show free-text (written) questions? per-subject choice (progress.prefs.freeText)
 
 function el(tag, cls, html) {
   const e = document.createElement(tag);
@@ -283,6 +283,13 @@ async function openLesson(subj, file) {
   state = progress[lessonFile] || { currentBlock: 0, quiz: {} };
   state.totalBlocks = lesson.blocks.length;
   document.getElementById("title").textContent = lesson.title;
+  // Question-type preference is PER SUBJECT: reuse this subject's recorded choice,
+  // else ask now (each new module prompts again — it is not carried over globally).
+  if (progress.prefs && typeof progress.prefs.freeText === "boolean") {
+    freeTextEnabled = progress.prefs.freeText;
+  } else {
+    await askFreeTextPref();
+  }
   saveProgress();  // record prefs (and mark the active subject) as soon as the lesson opens
   startPolling();
   renderLesson();
@@ -918,8 +925,10 @@ function reflectTeacherOnAwaiting() {
 }
 
 // --- Question-type preference: free-text (written) questions, or multiple-choice only ---
-// Stored per-browser in localStorage; also mirrored into progress.json (prefs.freeText)
-// so the teaching/reading session authors the right kind of question in the first place.
+// The real store is PER SUBJECT (progress.prefs.freeText), so the teaching/reading
+// session authors the right kind of question and each new module is asked afresh.
+// localStorage only remembers the last choice as the default toolbar state before a
+// subject is open; it never suppresses the per-subject prompt (that was the old bug).
 function loadFreeTextPref() {
   const v = localStorage.getItem("kalilmod.freeText");
   return v === null ? null : v === "on";
@@ -960,9 +969,11 @@ function route() {
 
 async function boot() {
   try { mode = (await (await fetch("/api/mode")).json()).mode; } catch (e) { /* default dynamic */ }
+  // The question-type preference is asked per subject in openLesson (not once,
+  // globally, here) so a new module never silently inherits an earlier choice.
+  // Seed a harmless default for the picker; loadFreeTextPref is only a suggestion.
   const pref = loadFreeTextPref();
-  if (pref === null) await askFreeTextPref();  // before everything else: ask once, then remember
-  else freeTextEnabled = pref;
+  if (pref !== null) freeTextEnabled = pref;
   window.addEventListener("hashchange", route);
   startTeacherPolling();  // dynamic mode only; badge shows whether a teacher is listening
   route();
