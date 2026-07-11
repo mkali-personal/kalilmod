@@ -8,11 +8,17 @@ built-in reference answer and there is no live teacher (assess diagnostics are
 hidden automatically). Recipients need only Python 3 and a browser with internet
 (for the CDN-hosted Markdown / LaTeX / graph renderers).
 
-Usage:
-  python tools/build_bundle.py <subject> [<subject> ...] [-o OUTDIR] [--zip]
+By default the launchers run the server with --ephemeral: progress is never
+written to disk, so the bundle can live in a *shared* folder without one
+student's position leaking to the next (F5 resets, which is fine for short
+lessons). Pass --keep-progress to build a bundle that saves progress per subject.
 
-  -o/--out  where to write the bundle (default: dist/<subject>-static/)
-  --zip     also produce <bundle>.zip next to it
+Usage:
+  python tools/build_bundle.py <subject> [<subject> ...] [-o OUTDIR] [--zip] [--keep-progress]
+
+  -o/--out         where to write the bundle (default: dist/<subject>-static/)
+  --zip            also produce <bundle>.zip next to it
+  --keep-progress  persist progress.json (default is ephemeral / no persistence)
 
 The lessons are validated as they're copied; a lesson with schema ERRORS aborts
 the build, and a quiz-free block missing its `reference` is warned about (static
@@ -29,13 +35,24 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 from validate_lesson import validate_file  # noqa: E402  (sibling module)
 
-README = """\
+def readme(ephemeral):
+    """Run instructions for the bundle; the progress note depends on the mode."""
+    flags = "--static" + (" --ephemeral" if ephemeral else "")
+    progress_note = (
+        "  * Progress is NOT saved: this bundle is meant for a shared folder, so\n"
+        "    each session starts fresh and no one sees anyone else's position\n"
+        "    (refreshing the page resets to the start -- fine for short lessons).\n"
+        if ephemeral else
+        "  * Your progress is saved locally (a progress.json appears per subject) so\n"
+        "    you can close the tab and resume later.\n"
+    )
+    return f"""\
 This is a Kalilmod lesson bundle (static mode -- no Claude session needed).
 
 To run it:
   1. Install Python 3 (nothing else -- the server uses only the standard library).
   2. In a terminal in THIS folder, run:
-         python serve.py --static
+         python serve.py {flags}
      (or double-click run-static.bat on Windows / run-static.sh on macOS/Linux)
   3. Your browser opens at the lesson picker. Click a lesson to begin.
      Flags: --port 8001 if 8000 is busy, --no-browser to not auto-open.
@@ -46,9 +63,7 @@ Notes:
   * Free-text questions are self-checked: you write an answer, then reveal a
     reference answer to compare. There is no live grading or feedback in static
     mode, and the pre-lesson "about you" diagnostic questions are hidden.
-  * Your progress is saved locally (a progress.json appears per subject) so you
-    can close the tab and resume later.
-"""
+{progress_note}"""
 
 
 def copy_subject(subject, bundle):
@@ -87,7 +102,10 @@ def main():
     ap.add_argument("subjects", nargs="+", help="subject folder name(s) under subjects/")
     ap.add_argument("-o", "--out", default=None, help="output folder (default: dist/<subject>-static)")
     ap.add_argument("--zip", action="store_true", help="also produce a .zip")
+    ap.add_argument("--keep-progress", action="store_true",
+                    help="persist progress.json (default: ephemeral / no persistence)")
     args = ap.parse_args()
+    ephemeral = not args.keep_progress
 
     default_name = (args.subjects[0] if len(args.subjects) == 1 else "kalilmod") + "-static"
     out = args.out or os.path.join(ROOT, "dist", default_name)
@@ -119,13 +137,14 @@ def main():
         sys.exit(f"\nAborted: {errors} lesson error(s). Fix them, then rebuild.")
 
     # Run instructions + convenience launchers.
+    serve_flags = "--static" + (" --ephemeral" if ephemeral else "")
     with open(os.path.join(out, "README.txt"), "w", encoding="utf-8") as f:
-        f.write(README)
+        f.write(readme(ephemeral))
     with open(os.path.join(out, "run-static.bat"), "w", encoding="utf-8", newline="\r\n") as f:
-        f.write("@echo off\r\npython serve.py --static\r\npause\r\n")
+        f.write(f"@echo off\r\npython serve.py {serve_flags}\r\npause\r\n")
     sh = os.path.join(out, "run-static.sh")
     with open(sh, "w", encoding="utf-8", newline="\n") as f:
-        f.write("#!/bin/sh\npython3 serve.py --static\n")
+        f.write(f"#!/bin/sh\npython3 serve.py {serve_flags}\n")
     try:
         os.chmod(sh, 0o755)
     except OSError:
@@ -133,9 +152,10 @@ def main():
 
     print(f"\nBundle ready: {out}")
     print(f"  subjects: {', '.join(args.subjects)}  ({len(copied)} lesson file(s), {warns} warning(s))")
+    print(f"  progress: {'ephemeral (not saved -- shared-folder safe)' if ephemeral else 'persisted per subject'}")
     if args.zip:
         print(f"  zipped:   {zip_dir(out)}")
-    print("  run with: python serve.py --static   (from inside the bundle)")
+    print(f"  run with: python serve.py {serve_flags}   (from inside the bundle)")
 
 
 if __name__ == "__main__":
