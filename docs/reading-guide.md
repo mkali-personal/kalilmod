@@ -58,6 +58,8 @@ Build each step as **pointer → attention cues → questions**, using an `expla
 
 Alternate tightly: never point the student at several passages with nothing to *do* in between — a pointer, then read, then questions.
 
+**Give definitions their own step.** In math, physics, and philosophy especially, understanding rises and falls with the fundamental definitions. When the source states a definition the rest of it leans on, point the student **squarely at that definition** (its own pointer, not folded into a larger passage) and ask questions that test the *exact wording* — which clauses are essential, what a boundary/near-miss case does, why a plausible-looking variant fails. Still don't restate it yourself; make the student read and pin down the source's own words.
+
 ### Block types
 
 - `explanation` — `markdown` (Markdown + LaTeX: `$...$` inline, `$$...$$` display) plus optional `lead`. Used as the pointer/cue block above. **Do not put the source's content here** — only the goal-and-where-to-read pointer (and, only on explicit student request, an actual explanation).

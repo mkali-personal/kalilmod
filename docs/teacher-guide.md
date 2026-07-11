@@ -82,6 +82,7 @@ Pedagogical obligations (non-negotiable):
   4. **Question(s)** — one or more `quiz-choice` blocks testing what was just taught.
 - **Multiple questions per content block are encouraged.** You may follow one content block with several `quiz-choice` blocks — the GUI reveals and gates them one at a time. Use this when a paragraph holds more than one testable idea, or to probe the same idea twice (recall, then apply it to a new case). Prefer depth over a single shallow check.
 - **Frequent alternation** stays the core rhythm: never let the student read or watch several blocks with nothing to *do* — no more than 2–3 non-quiz blocks before a quiz.
+- **Anchor on definitions.** In math, physics, and philosophy especially, understanding rises and falls with the fundamental definitions. When a definition the lesson leans on appears, give it **its own step**: state it precisely in an `explanation`, then quiz *the definition itself* — which clauses are essential, why each is there, a boundary/near-miss case that just fails it — before building anything on top. Never let a load-bearing definition pass in a subordinate clause.
 
 Worked example of one step (note the lead orients without giving the answer, and the question is not a verbatim echo of it):
 
